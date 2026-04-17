@@ -1,0 +1,161 @@
+.card {
+  background: #fff;
+  border: 1px solid #e7e7e9;
+  border-radius: 24px;
+  padding: 18px;
+  display: flex;
+  gap: 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.cardInteractive {
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.cardInteractive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+}
+
+.cardInteractive:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.28);
+  outline-offset: 3px;
+}
+
+.imageWrap {
+  width: 190px;
+  height: 145px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.topRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.titleWrap h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #27272a;
+  line-height: 1.35;
+}
+
+.location {
+  margin: 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #71717a;
+  font-size: 14px;
+}
+
+.price {
+  font-size: 18px;
+  font-weight: 800;
+  color: #4f83e8;
+  white-space: nowrap;
+}
+
+.metaRow {
+  margin: 16px 0 18px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #71717a;
+}
+
+.meta,
+.rooms {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.rooms {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.statusBtn,
+.editBtn,
+.deleteBtn {
+  border: none;
+  border-radius: 14px;
+  padding: 11px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.statusBtn {
+  font-weight: 700;
+}
+
+.on {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.off {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: currentColor;
+  display: inline-block;
+}
+
+.editBtn {
+  background: #f4f4f5;
+  color: #27272a;
+}
+
+.deleteBtn {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+  .card {
+    flex-direction: column;
+  }
+
+  .imageWrap {
+    width: 100%;
+    height: 210px;
+  }
+
+  .topRow {
+    flex-direction: column;
+  }
+}

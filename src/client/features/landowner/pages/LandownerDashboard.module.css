@@ -1,0 +1,214 @@
+.page {
+  min-height: 100vh;
+  background: #f4f4f5;
+  color: #18181b;
+}
+
+.main {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 24px 32px 40px;
+}
+
+.hero {
+  margin-bottom: 26px;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: #27272a;
+}
+
+.subtitle {
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: #71717a;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+  margin-bottom: 30px;
+}
+
+.statCard {
+  background: #fff;
+  border: 1px solid #e7e7e9;
+  border-radius: 22px;
+  padding: 26px 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.statCard h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 800;
+  color: #3b82f6;
+}
+
+.statCard p {
+  margin: 0;
+  font-size: 15px;
+  color: #71717a;
+}
+
+.green h2 {
+  color: #10b981;
+}
+
+.section {
+  margin-top: 8px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #27272a;
+}
+
+.addButton {
+  border: none;
+  background: linear-gradient(135deg, #5b8ef3, #3b82f6);
+  color: white;
+  border-radius: 18px;
+  padding: 14px 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(59, 130, 246, 0.25);
+}
+
+.listGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.stateText {
+  font-size: 15px;
+  color: #71717a;
+  background: #fff;
+  border: 1px solid #e7e7e9;
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 24, 27, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.modalCard {
+  width: min(100%, 440px);
+  background: #ffffff;
+  border: 1px solid #e7e7e9;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+  padding: 24px;
+}
+
+.modalTitle {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #27272a;
+}
+
+.modalText {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #71717a;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.modalCancelButton,
+.modalDeleteButton {
+  border: none;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.modalCancelButton {
+  background: #f4f4f5;
+  color: #27272a;
+}
+
+.modalDeleteButton {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.modalCancelButton:disabled,
+.modalDeleteButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1100px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .listGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .main {
+    padding: 20px 18px 32px;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .addButton {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modalActions {
+    flex-direction: column;
+  }
+
+  .modalCancelButton,
+  .modalDeleteButton {
+    width: 100%;
+  }
+}

@@ -1,0 +1,124 @@
+.navbar {
+  width: 100%;
+  min-height: 82px;
+  border-bottom: 1px solid #e8eaed;
+  background: #ffffff;
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+
+.iconWrap {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: #1a73e8;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.title {
+  color: #3b82f6;
+  font-size: 45px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.role {
+  color: #9aa0a6;
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.navBtn {
+  border: none;
+  background: transparent;
+  color: #3c4043;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  transition: background-color 0.16s ease, color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.navBtn:hover {
+  background: #f1f3f4;
+  transform: translateY(-1px);
+}
+
+.active {
+  background: #1a73e8;
+  color: #ffffff;
+}
+
+.active:hover {
+  background: #1a73e8;
+}
+
+.navInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.favoritesBadge {
+  position: absolute;
+  top: -8px;
+  right: -12px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #d93025;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  padding: 0 5px;
+}
+
+.logout {
+  color: #d93025;
+  font-weight: 700;
+}
+
+.logout:hover {
+  background: #fce8e6;
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px 20px;
+  }
+
+  .nav {
+    flex-wrap: wrap;
+  }
+}

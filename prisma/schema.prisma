@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  accountId   Int         @id @default(autoincrement()) @map("account_id")
+  accountType AccountType @map("account_type")
+  email       String      @unique(map: "email") @map("email")
+  password    String      @db.VarChar(255)
+  studentId   Int?        @unique(map: "student_id") @map("student_id")
+  landownerId Int?        @unique(map: "landowner_id") @map("landowner_id")
+  landowner   Landowner?  @relation(fields: [landownerId], references: [landownerId], onUpdate: Restrict, map: "fk_account_landowner")
+  student     Student?    @relation(fields: [studentId], references: [studentId], onUpdate: Restrict, map: "fk_account_student")
+
+  @@map("account")
+}
+
+model BoardingHouse {
+  boardinghouseId        Int                  @id @default(autoincrement()) @map("boardinghouse_id")
+  name                   String               @db.VarChar(255)
+  location               String               @db.VarChar(255)
+  availabilityStatus     AvailabilityStatus   @default(AVAILABLE) @map("availability_status")
+  amenities              String               @db.Text
+  landownerId            Int                  @map("landowner_id")
+  description            String               @db.Text
+  contactNumber          String?              @map("contact_number") 
+  distanceFromUniversity String               @map("distance_fron_university") @db.VarChar(255)
+  referenceMap           String?              @map("reference_map") @db.VarChar(255)
+  viewCount              Int                  @default(0) @map("view_count")
+  landowner              Landowner            @relation(fields: [landownerId], references: [landownerId], onDelete: Cascade, onUpdate: Restrict, map: "fk_boardinghouse_landowner")
+  photos                 BoardinghousePhoto[]
+  favorites              Favorite[]
+  rooms                  Room[]
+  propertyViews          PropertyView[]       // ✅ added reverse relation
+
+  @@index([landownerId], map: "fk_boardinghouse_landowner")
+  @@map("boarding_house")
+}
+
+model BoardinghousePhoto {
+  photoId         Int           @id @default(autoincrement()) @map("photo_id")
+  boardinghouseId Int           @map("boardinghouse_id")
+  photoUrl        String        @map("photo_url") @db.VarChar(255)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.DateTime(0)
+  boardingHouse   BoardingHouse @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade, onUpdate: Restrict, map: "fk_photos_boardinghouse")
+
+  @@index([boardinghouseId], map: "fk_photos_boardinghouse")
+  @@map("boardinghouse_photos")
+}
+
+model Favorite {
+  favoriteId      Int           @id @default(autoincrement()) @map("favorite_id")
+  studentId       Int           @map("student_id")
+  boardinghouseId Int           @map("boardinghouse_id")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.DateTime(0)
+  boardingHouse   BoardingHouse @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade, onUpdate: Restrict, map: "fk_favorite_boardinghouse")
+  student         Student       @relation(fields: [studentId], references: [studentId], onDelete: Cascade, onUpdate: Restrict, map: "fk_favorite_student")
+
+  @@unique([studentId, boardinghouseId], map: "uniq_favorite")
+  @@index([boardinghouseId], map: "fk_favorite_boardinghouse")
+  @@map("favorites")
+}
+
+model PropertyView {
+  viewId          Int          @id @default(autoincrement()) @map("view_id")
+  boardinghouseId Int          @map("boardinghouse_id")
+  studentId       Int          @map("student_id")
+  viewedAt        DateTime     @default(now()) @map("viewed_at") @db.DateTime(0)
+  boardingHouse   BoardingHouse @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade)
+  student         Student       @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+
+  @@unique([studentId, boardinghouseId])
+  @@map("property_views")
+}
+
+model Landowner {
+  landownerId    Int             @id @default(autoincrement()) @map("landowner_id")
+  firstName      String          @map("firstName") @db.VarChar(100)
+  middleName     String?         @map("middleName") @db.VarChar(100)
+  lastName       String          @map("lastName") @db.VarChar(100)
+  email          String          @unique(map: "email") @map("email")
+  address        String          @db.VarChar(255)
+  gender         String          @db.VarChar(50)
+  age            Int
+  mobileNo       String          @map("mobile_no") @db.VarChar(50)
+  birthdate      DateTime        @db.Date
+  account        Account?
+  boardingHouses BoardingHouse[]
+
+  @@map("landowner")
+}
+
+model Room {
+  roomId             Int                @id @default(autoincrement()) @map("room_id")
+  roomType           String             @map("room_type") @db.VarChar(255)
+  description        String             @db.Text
+  capacity           Int
+  price              Decimal            @db.Decimal(10, 2)
+  availabilityStatus AvailabilityStatus @default(AVAILABLE) @map("availability_status")
+  studentId          Int?               @map("student_id")
+  boardinghouseId    Int                @map("boardinghouse_id")
+  boardingHouse      BoardingHouse      @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade, onUpdate: Restrict, map: "fk_rooms_boardinghouse")
+  student            Student?           @relation(fields: [studentId], references: [studentId], onUpdate: Restrict, map: "fk_rooms_student")
+
+  @@index([boardinghouseId], map: "fk_rooms_boardinghouse")
+  @@index([studentId], map: "fk_rooms_student")
+  @@map("rooms")
+}
+
+model Student {
+  studentId  Int        @id @default(autoincrement()) @map("student_id")
+  firstName  String     @map("firstName") @db.VarChar(100)
+  middleName String?    @map("middleName") @db.VarChar(100)
+  lastName   String     @map("lastName") @db.VarChar(100)
+  email      String     @unique(map: "email") @map("email")
+  address    String     @db.VarChar(255)
+  gender     String     @db.VarChar(50)
+  age        Int
+  mobileNo   String     @map("mobile_no") @db.VarChar(50)
+  birthdate  DateTime   @db.Date
+  account    Account?
+  favorites  Favorite[]
+  rooms      Room[]
+  propertyViews PropertyView[]   // ✅ added reverse relation
+
+  @@map("student")
+}
+
+enum AccountType {
+  STUDENT
+  LANDOWNER
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  FULL
+  INACTIVE
+}
