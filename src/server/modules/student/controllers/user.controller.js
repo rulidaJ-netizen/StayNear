@@ -1,19 +1,24 @@
 import fs from "fs";
-import path from "path";
 import { db } from "../../../shared/db.js";
 import { buildFullName, splitFullName } from "../../../shared/utils/profileUtils.js";
+import {
+  ensureDirectory,
+  resolveStoragePath,
+  resolveUploadUrlPath,
+  resolveUploadsPath,
+  toUploadsUrl,
+} from "../../../shared/config/runtimePaths.js";
 
 const FULL_NAME_REGEX = /^[\p{L}][\p{L}\s.'-]*$/u;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const rootDir = process.cwd();
-const storageDir = path.join(rootDir, "storage");
-const avatarsDir = path.join(rootDir, "uploads", "avatars");
-const metadataFilePath = path.join(storageDir, "student-profile-meta.json");
+const storageDir = resolveStoragePath();
+const avatarsDir = resolveUploadsPath("avatars");
+const metadataFilePath = resolveStoragePath("student-profile-meta.json");
 
 const ensureStoragePaths = () => {
-  fs.mkdirSync(storageDir, { recursive: true });
-  fs.mkdirSync(avatarsDir, { recursive: true });
+  ensureDirectory(storageDir);
+  ensureDirectory(avatarsDir);
 };
 
 const readProfileMetadata = () => {
@@ -249,10 +254,7 @@ export const uploadUserAvatar = (req, res) => {
       const existingAvatarUrl = metadata[String(studentId)]?.avatar_url;
 
       if (existingAvatarUrl) {
-        const existingAvatarPath = path.join(
-          rootDir,
-          existingAvatarUrl.replace(/^\//, "")
-        );
+        const existingAvatarPath = resolveUploadUrlPath(existingAvatarUrl);
 
         if (
           existingAvatarPath !== req.file.path &&
@@ -266,7 +268,7 @@ export const uploadUserAvatar = (req, res) => {
         }
       }
 
-      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      const avatarUrl = toUploadsUrl("avatars", req.file.filename);
 
       metadata[String(studentId)] = {
         ...(metadata[String(studentId)] || {}),

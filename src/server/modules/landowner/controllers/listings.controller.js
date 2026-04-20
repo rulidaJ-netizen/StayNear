@@ -6,6 +6,7 @@ import {
   toDbAvailabilityStatus,
   validatePricingAvailability,
 } from "../../../shared/utils/listingUtils.js";
+import { toUploadsUrl } from "../../../shared/config/runtimePaths.js";
 
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 
@@ -285,7 +286,7 @@ export const createListing = (req, res) => {
 
           const values = files.map((file) => [
             boardinghouseId,
-            `/uploads/${file.filename}`,
+            toUploadsUrl(file.filename),
           ]);
 
           db.query(
@@ -527,7 +528,7 @@ export const updateListing = (req, res) => {
 
               const values = req.files.map((file) => [
                 Number(id),
-                `/uploads/${file.filename}`,
+                toUploadsUrl(file.filename),
               ]);
 
               db.query(

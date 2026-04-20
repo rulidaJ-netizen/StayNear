@@ -14,6 +14,7 @@ import favoritesRoutes from "./modules/student/routes/favorites.routes.js";
 import studentListingsRoutes from "./modules/student/routes/listings.routes.js";
 import studentProfileRoutes from "./modules/student/routes/profile.routes.js";
 import studentUserRoutes from "./modules/student/routes/user.routes.js";
+import { uploadsDir } from "./shared/config/runtimePaths.js";
 import studentViewRoutes from "./modules/student/routes/studentViewRoutes.js"; // ✅ ADDED
 
 const app = express();
@@ -21,9 +22,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
 const distDir = path.join(rootDir, "dist");
-const uploadsDir = path.join(rootDir, "uploads");
+const allowedOrigins = String(process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const corsOptions =
+  allowedOrigins.length > 0
+    ? {
+        origin(origin, callback) {
+          if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+          }
 
-app.use(cors());
+          callback(new Error("Origin not allowed by CORS"));
+        },
+      }
+    : undefined;
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use("/uploads", express.static(uploadsDir));
 

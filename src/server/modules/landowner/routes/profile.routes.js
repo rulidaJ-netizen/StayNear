@@ -1,5 +1,4 @@
 import express from "express";
-import fs from "fs";
 import multer from "multer";
 import path from "path";
 import {
@@ -8,11 +7,13 @@ import {
   updateLandownerProfile,
   uploadLandownerAvatar,
 } from "../controllers/profile.controller.js";
+import {
+  ensureDirectory,
+  resolveUploadsPath,
+} from "../../../shared/config/runtimePaths.js";
 
 const router = express.Router();
-const uploadDir = path.join(process.cwd(), "uploads", "avatars", "landowners");
-
-fs.mkdirSync(uploadDir, { recursive: true });
+const uploadDir = ensureDirectory(resolveUploadsPath("avatars", "landowners"));
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {

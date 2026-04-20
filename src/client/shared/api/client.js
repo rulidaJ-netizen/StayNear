@@ -3,8 +3,26 @@ import axios from "axios";
 const normalizeBaseUrl = (value) =>
   String(value ?? "/api").replace(/\/+$/, "");
 
+const resolveImageBaseUrl = (apiBaseUrl) => {
+  const configuredImageBaseUrl = String(
+    import.meta.env.VITE_IMAGE_BASE_URL || ""
+  ).trim();
+
+  if (configuredImageBaseUrl) {
+    return configuredImageBaseUrl.replace(/\/+$/, "");
+  }
+
+  try {
+    return new URL(apiBaseUrl).origin;
+  } catch {
+    return "";
+  }
+};
+
+const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_URL || "/api");
+
 const api = axios.create({
-  baseURL: normalizeBaseUrl(import.meta.env.VITE_API_URL || "/api"),
+  baseURL: apiBaseUrl,
 });
 
 api.interceptors.request.use((config) => {
@@ -28,6 +46,6 @@ api.interceptors.response.use(
   }
 );
 
-export const imageBaseUrl = import.meta.env.VITE_IMAGE_BASE_URL || "";
+export const imageBaseUrl = resolveImageBaseUrl(apiBaseUrl);
 
 export default api;

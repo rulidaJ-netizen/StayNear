@@ -1,5 +1,4 @@
 import express from "express";
-import fs from "fs";
 import multer from "multer";
 import path from "path";
 import {
@@ -10,13 +9,13 @@ import {
   toggleAvailability,
   updateListing,
 } from "../controllers/listings.controller.js";
+import {
+  ensureDirectory,
+  resolveUploadsPath,
+} from "../../../shared/config/runtimePaths.js";
 
 const router = express.Router();
-const uploadDir = "uploads";
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const uploadDir = ensureDirectory(resolveUploadsPath());
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {

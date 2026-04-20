@@ -1,23 +1,28 @@
 import fs from "fs";
-import path from "path";
 import { db } from "../../../shared/db.js";
 import {
   buildFullName,
   splitFullName,
 } from "../../../shared/utils/profileUtils.js";
 import { toClientAvailabilityStatus } from "../../../shared/utils/listingUtils.js";
+import {
+  ensureDirectory,
+  resolveStoragePath,
+  resolveUploadUrlPath,
+  resolveUploadsPath,
+  toUploadsUrl,
+} from "../../../shared/config/runtimePaths.js";
 
 const FULL_NAME_REGEX = /^[\p{L}][\p{L}\s.'-]*$/u;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const rootDir = process.cwd();
-const storageDir = path.join(rootDir, "storage");
-const avatarsDir = path.join(rootDir, "uploads", "avatars", "landowners");
-const metadataFilePath = path.join(storageDir, "landowner-profile-meta.json");
+const storageDir = resolveStoragePath();
+const avatarsDir = resolveUploadsPath("avatars", "landowners");
+const metadataFilePath = resolveStoragePath("landowner-profile-meta.json");
 
 const ensureStoragePaths = () => {
-  fs.mkdirSync(storageDir, { recursive: true });
-  fs.mkdirSync(avatarsDir, { recursive: true });
+  ensureDirectory(storageDir);
+  ensureDirectory(avatarsDir);
 };
 
 const readProfileMetadata = () => {
@@ -293,10 +298,7 @@ export const uploadLandownerAvatar = (req, res) => {
       const existingAvatarUrl = metadata[String(landownerId)]?.avatar_url;
 
       if (existingAvatarUrl) {
-        const existingAvatarPath = path.join(
-          rootDir,
-          existingAvatarUrl.replace(/^\//, "")
-        );
+        const existingAvatarPath = resolveUploadUrlPath(existingAvatarUrl);
 
         if (
           existingAvatarPath !== req.file.path &&
@@ -310,7 +312,11 @@ export const uploadLandownerAvatar = (req, res) => {
         }
       }
 
-      const avatarUrl = `/uploads/avatars/landowners/${req.file.filename}`;
+      const avatarUrl = toUploadsUrl(
+        "avatars",
+        "landowners",
+        req.file.filename
+      );
 
       metadata[String(landownerId)] = {
         ...(metadata[String(landownerId)] || {}),

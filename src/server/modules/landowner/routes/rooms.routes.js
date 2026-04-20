@@ -1,11 +1,16 @@
 import express from "express";
 import multer from "multer";
 import { createRoom, uploadRoomPhotos } from "../controllers/room.controller.js";
+import {
+  ensureDirectory,
+  resolveUploadsPath,
+} from "../../../shared/config/runtimePaths.js";
 
 const router = express.Router();
+const uploadDir = ensureDirectory(resolveUploadsPath());
 
 const storage = multer.diskStorage({
-  destination: "uploads/",
+  destination: uploadDir,
   filename: (_req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
   },

@@ -1,4 +1,5 @@
 import { db } from "../../../shared/db.js";
+import { toUploadsUrl } from "../../../shared/config/runtimePaths.js";
 
 export const createBoardingHouseDraft = (req, res) => {
   const { landowner_id, name, description, contact_number } = req.body;
@@ -70,7 +71,7 @@ export const uploadBoardingHousePhotos = (req, res) => {
 
   const values = files.map((file) => [
     id,
-    `/uploads/boardinghouses/${file.filename}`,
+    toUploadsUrl("boardinghouses", file.filename),
     new Date(),
   ]);
 
