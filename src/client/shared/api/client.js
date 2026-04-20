@@ -3,6 +3,18 @@ import axios from "axios";
 const normalizeBaseUrl = (value) =>
   String(value ?? "/api").replace(/\/+$/, "");
 
+const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
+
+const isMissingVercelApiUrl = () => {
+  if (configuredApiUrl || !import.meta.env.PROD || typeof window === "undefined") {
+    return false;
+  }
+
+  const hostname = String(window.location.hostname || "").toLowerCase();
+
+  return hostname === "vercel.app" || hostname.endsWith(".vercel.app");
+};
+
 const resolveImageBaseUrl = (apiBaseUrl) => {
   const configuredImageBaseUrl = String(
     import.meta.env.VITE_IMAGE_BASE_URL || ""
@@ -19,7 +31,15 @@ const resolveImageBaseUrl = (apiBaseUrl) => {
   }
 };
 
-const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_URL || "/api");
+const apiBaseUrl = normalizeBaseUrl(configuredApiUrl || "/api");
+
+if (isMissingVercelApiUrl()) {
+  console.error(
+    "[api] VITE_API_URL is not configured for this Vercel deployment. " +
+      "Requests are falling back to /api, but this project deploys the Express API separately. " +
+      "Set VITE_API_URL to your Railway /api URL and redeploy."
+  );
+}
 
 const api = axios.create({
   baseURL: apiBaseUrl,
