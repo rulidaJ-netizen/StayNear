@@ -15,7 +15,7 @@ import studentListingsRoutes from "./modules/student/routes/listings.routes.js";
 import studentProfileRoutes from "./modules/student/routes/profile.routes.js";
 import studentUserRoutes from "./modules/student/routes/user.routes.js";
 import { uploadsDir } from "./shared/config/runtimePaths.js";
-import studentViewRoutes from "./modules/student/routes/studentViewRoutes.js"; // ✅ ADDED
+import studentViewRoutes from "./modules/student/routes/studentViewRoutes.js";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -46,7 +46,6 @@ const corsOptions =
             callback(null, true);
             return;
           }
-
           callback(new Error("Origin not allowed by CORS"));
         },
         methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -57,7 +56,6 @@ const corsOptions =
             callback(null, true);
             return;
           }
-
           callback(new Error("Origin not allowed by CORS"));
         },
         methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -74,7 +72,6 @@ app.get("/", (_req, res) => {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-
     return res.json({
       status: "ok",
       service: "staynear-api",
@@ -82,7 +79,6 @@ app.get("/api/health", async (_req, res) => {
     });
   } catch (error) {
     console.error("Health check error:", error);
-
     return res.status(503).json({
       status: "error",
       service: "staynear-api",
@@ -113,7 +109,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/student/profile", studentProfileRoutes);
 app.use("/api/student/favorites", favoritesRoutes);
 app.use("/api/student/boarding-houses", studentListingsRoutes);
-app.use("/api/student", studentViewRoutes); // ✅ ADDED – mounts the new route under /api/student
+app.use("/api/student", studentViewRoutes);
 app.use("/api/user", studentUserRoutes);
 app.use("/api/landowner/profile", landownerProfileRoutes);
 app.use("/api/landowner/boarding-houses", landownerBoardingHouseRoutes);
@@ -122,7 +118,6 @@ app.use("/api/landowner/rooms", roomRoutes);
 
 if (fs.existsSync(distDir)) {
   app.use(express.static(distDir));
-
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
       return next();
@@ -135,12 +130,37 @@ app.use((error, _req, res, next) => {
   if (error?.message === "Origin not allowed by CORS") {
     return res.status(403).json({ message: error.message });
   }
-
   return next(error);
 });
 
 const PORT = Number(process.env.PORT || 5000);
 
+// ========== CHANGE 1: Add keep-alive ping to prevent idle disconnection ==========
+async function keepDatabaseAlive() {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    console.log("📡 Database keep-alive ping");
+  } catch (err) {
+    console.error("❌ Database keep-alive failed:", err.message);
+  }
+}
+
+// Run ping every 30 seconds (adjust as needed)
+setInterval(keepDatabaseAlive, 30000);
+// ========== END CHANGE 1 ==========
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`CORS allowed origins: ${allowedOrigins.join(", ") || "none"}`);
 });
+
+// ========== CHANGE 2: Handle uncaught errors to prevent crashes ==========
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+  // Do not exit – let the server keep running
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+// ========== END CHANGE 2 ==========
