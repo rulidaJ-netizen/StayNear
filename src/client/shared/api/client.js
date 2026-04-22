@@ -4,6 +4,16 @@ const DEFAULT_API_BASE_PATH = "/api";
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
 
 const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
+const isProductionBuild = import.meta.env.PROD;
+
+const isLocalUrl = (value) => {
+  try {
+    const url = new URL(String(value || "").trim());
+    return LOCAL_HOSTNAMES.has(String(url.hostname || "").toLowerCase());
+  } catch {
+    return false;
+  }
+};
 
 const normalizeApiBaseUrl = (value) => {
   const rawValue = String(value || "").trim();
@@ -30,19 +40,12 @@ const normalizeApiBaseUrl = (value) => {
 };
 
 const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
-const apiBaseUrl = normalizeApiBaseUrl(configuredApiUrl);
-
-const isLocalApiUrl = () => {
-  try {
-    const url = new URL(apiBaseUrl);
-    return LOCAL_HOSTNAMES.has(String(url.hostname || "").toLowerCase());
-  } catch {
-    return false;
-  }
-};
+const sanitizedConfiguredApiUrl =
+  isProductionBuild && isLocalUrl(configuredApiUrl) ? "" : configuredApiUrl;
+const apiBaseUrl = normalizeApiBaseUrl(sanitizedConfiguredApiUrl);
 
 const isMissingVercelApiUrl = () => {
-  if (configuredApiUrl || !import.meta.env.PROD || typeof window === "undefined") {
+  if (sanitizedConfiguredApiUrl || !isProductionBuild || typeof window === "undefined") {
     return false;
   }
 
@@ -55,9 +58,13 @@ const resolveImageBaseUrl = (apiBaseUrl) => {
   const configuredImageBaseUrl = String(
     import.meta.env.VITE_IMAGE_BASE_URL || ""
   ).trim();
+  const sanitizedConfiguredImageBaseUrl =
+    isProductionBuild && isLocalUrl(configuredImageBaseUrl)
+      ? ""
+      : configuredImageBaseUrl;
 
-  if (configuredImageBaseUrl) {
-    return trimTrailingSlashes(configuredImageBaseUrl);
+  if (sanitizedConfiguredImageBaseUrl) {
+    return trimTrailingSlashes(sanitizedConfiguredImageBaseUrl);
   }
 
   try {
@@ -79,10 +86,10 @@ if (isMissingVercelApiUrl()) {
   );
 }
 
-if (import.meta.env.PROD && isLocalApiUrl()) {
+if (isProductionBuild && configuredApiUrl && !sanitizedConfiguredApiUrl) {
   console.error(
-    `[api] Refusing to rely on a localhost API URL in production: "${apiBaseUrl}". ` +
-      "Set VITE_API_URL to your live Railway backend URL in Vercel."
+    `[api] Refusing to rely on a localhost API URL in production: "${configuredApiUrl}". ` +
+      "Ignoring it and falling back to /api instead."
   );
 }
 
