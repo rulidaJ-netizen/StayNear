@@ -22,10 +22,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
 const distDir = path.join(rootDir, "dist");
-const allowedOrigins = String(process.env.CORS_ORIGIN || "")
+const defaultDevOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:4173",
+  "http://127.0.0.1:4173",
+];
+const configuredOrigins = String(process.env.CORS_ORIGIN || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const allowedOrigins =
+  configuredOrigins.length > 0
+    ? configuredOrigins
+    : process.env.NODE_ENV === "production"
+      ? []
+      : defaultDevOrigins;
 const corsOptions =
   allowedOrigins.length > 0
     ? {
@@ -37,8 +49,19 @@ const corsOptions =
 
           callback(new Error("Origin not allowed by CORS"));
         },
+        methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       }
-    : undefined;
+    : {
+        origin(origin, callback) {
+          if (!origin) {
+            callback(null, true);
+            return;
+          }
+
+          callback(new Error("Origin not allowed by CORS"));
+        },
+        methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      };
 
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -46,6 +69,26 @@ app.use("/uploads", express.static(uploadsDir));
 
 app.get("/", (_req, res) => {
   res.send("Server is running");
+});
+
+app.get("/api/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+
+    return res.json({
+      status: "ok",
+      service: "staynear-api",
+      database: "connected",
+    });
+  } catch (error) {
+    console.error("Health check error:", error);
+
+    return res.status(503).json({
+      status: "error",
+      service: "staynear-api",
+      database: "unreachable",
+    });
+  }
 });
 
 app.get("/accounts", async (_req, res) => {
@@ -87,6 +130,14 @@ if (fs.existsSync(distDir)) {
     return res.sendFile(path.join(distDir, "index.html"));
   });
 }
+
+app.use((error, _req, res, next) => {
+  if (error?.message === "Origin not allowed by CORS") {
+    return res.status(403).json({ message: error.message });
+  }
+
+  return next(error);
+});
 
 const PORT = Number(process.env.PORT || 5000);
 
