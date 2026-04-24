@@ -29,16 +29,18 @@ const defaultDevOrigins = [
   "http://localhost:4173",
   "http://127.0.0.1:4173",
 ];
+const defaultProductionOrigins = ["https://stay-near-ten.vercel.app"];
 const configuredOrigins = String(process.env.CORS_ORIGIN || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const allowedOrigins =
-  configuredOrigins.length > 0
-    ? configuredOrigins
-    : process.env.NODE_ENV === "production"
-      ? []
-      : defaultDevOrigins;
+const allowedOrigins = Array.from(
+  new Set(
+    process.env.NODE_ENV === "production"
+      ? [...defaultProductionOrigins, ...configuredOrigins]
+      : [...defaultDevOrigins, ...configuredOrigins]
+  )
+);
 const corsOptions =
   allowedOrigins.length > 0
     ? {
@@ -51,6 +53,9 @@ const corsOptions =
           callback(new Error("Origin not allowed by CORS"));
         },
         methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+        credentials: true,
+        optionsSuccessStatus: 204,
       }
     : {
         origin(origin, callback) {
@@ -62,6 +67,9 @@ const corsOptions =
           callback(new Error("Origin not allowed by CORS"));
         },
         methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+        credentials: true,
+        optionsSuccessStatus: 204,
       };
 
 const pingMysqlConnection = () =>
@@ -77,6 +85,7 @@ const pingMysqlConnection = () =>
   });
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use("/uploads", express.static(uploadsDir));
 

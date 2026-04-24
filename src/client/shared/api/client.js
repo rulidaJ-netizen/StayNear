@@ -5,6 +5,10 @@ const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
 
 const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
 const isProductionBuild = import.meta.env.PROD;
+const isVercelHostname = (value) => {
+  const hostname = String(value || "").toLowerCase();
+  return hostname === "vercel.app" || hostname.endsWith(".vercel.app");
+};
 
 const isLocalUrl = (value) => {
   try {
@@ -42,16 +46,27 @@ const normalizeApiBaseUrl = (value) => {
 const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
 const sanitizedConfiguredApiUrl =
   isProductionBuild && isLocalUrl(configuredApiUrl) ? "" : configuredApiUrl;
-const apiBaseUrl = normalizeApiBaseUrl(sanitizedConfiguredApiUrl);
+const forceSameOriginProxy =
+  isProductionBuild &&
+  typeof window !== "undefined" &&
+  isVercelHostname(window.location.hostname);
+const apiBaseUrl = normalizeApiBaseUrl(
+  forceSameOriginProxy ? DEFAULT_API_BASE_PATH : sanitizedConfiguredApiUrl
+);
 
 const isMissingVercelApiUrl = () => {
-  if (sanitizedConfiguredApiUrl || !isProductionBuild || typeof window === "undefined") {
+  if (
+    sanitizedConfiguredApiUrl ||
+    forceSameOriginProxy ||
+    !isProductionBuild ||
+    typeof window === "undefined"
+  ) {
     return false;
   }
 
   const hostname = String(window.location.hostname || "").toLowerCase();
 
-  return hostname === "vercel.app" || hostname.endsWith(".vercel.app");
+  return isVercelHostname(hostname);
 };
 
 const resolveImageBaseUrl = (apiBaseUrl) => {
@@ -62,6 +77,10 @@ const resolveImageBaseUrl = (apiBaseUrl) => {
     isProductionBuild && isLocalUrl(configuredImageBaseUrl)
       ? ""
       : configuredImageBaseUrl;
+
+  if (forceSameOriginProxy && typeof window !== "undefined") {
+    return window.location.origin;
+  }
 
   if (sanitizedConfiguredImageBaseUrl) {
     return trimTrailingSlashes(sanitizedConfiguredImageBaseUrl);
@@ -83,6 +102,12 @@ if (isMissingVercelApiUrl()) {
     "[api] VITE_API_URL is not configured for this Vercel deployment. " +
       "Requests are falling back to /api. " +
       "If Vercel is not proxying /api to Railway, set VITE_API_URL to your Railway backend origin and redeploy."
+  );
+}
+
+if (forceSameOriginProxy) {
+  console.info(
+    "[api] Using same-origin /api and /uploads routes on this Vercel deployment."
   );
 }
 
