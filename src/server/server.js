@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import prisma from "./shared/prismaClient.js";
+import { db } from "./shared/db.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import landownerBoardingHouseRoutes from "./modules/landowner/routes/boardingHouse.routes.js";
 import landownerListingsRoutes from "./modules/landowner/routes/listings.routes.js";
@@ -46,6 +47,7 @@ const corsOptions =
             callback(null, true);
             return;
           }
+
           callback(new Error("Origin not allowed by CORS"));
         },
         methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -56,10 +58,23 @@ const corsOptions =
             callback(null, true);
             return;
           }
+
           callback(new Error("Origin not allowed by CORS"));
         },
         methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       };
+
+const pingMysqlConnection = () =>
+  new Promise((resolve, reject) => {
+    db.query("SELECT 1", (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
 
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -71,7 +86,8 @@ app.get("/", (_req, res) => {
 
 app.get("/api/health", async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await Promise.all([prisma.$queryRaw`SELECT 1`, pingMysqlConnection()]);
+
     return res.json({
       status: "ok",
       service: "staynear-api",
@@ -79,6 +95,7 @@ app.get("/api/health", async (_req, res) => {
     });
   } catch (error) {
     console.error("Health check error:", error);
+
     return res.status(503).json({
       status: "error",
       service: "staynear-api",
@@ -122,6 +139,7 @@ if (fs.existsSync(distDir)) {
     if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) {
       return next();
     }
+
     return res.sendFile(path.join(distDir, "index.html"));
   });
 }
@@ -130,37 +148,70 @@ app.use((error, _req, res, next) => {
   if (error?.message === "Origin not allowed by CORS") {
     return res.status(403).json({ message: error.message });
   }
+
   return next(error);
 });
 
 const PORT = Number(process.env.PORT || 5000);
+const DB_KEEP_ALIVE_INTERVAL_MS = Number(
+  process.env.DB_KEEP_ALIVE_INTERVAL_MS || 30000
+);
 
-// ========== CHANGE 1: Add keep-alive ping to prevent idle disconnection ==========
 async function keepDatabaseAlive() {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    console.log("📡 Database keep-alive ping");
-  } catch (err) {
-    console.error("❌ Database keep-alive failed:", err.message);
+    await Promise.all([prisma.$queryRaw`SELECT 1`, pingMysqlConnection()]);
+    console.log("[db] keep-alive ping");
+  } catch (error) {
+    console.error("[db] keep-alive failed:", error?.message || error);
   }
 }
 
-// Run ping every 30 seconds (adjust as needed)
-setInterval(keepDatabaseAlive, 30000);
-// ========== END CHANGE 1 ==========
+const keepAliveTimer = setInterval(keepDatabaseAlive, DB_KEEP_ALIVE_INTERVAL_MS);
 
-app.listen(PORT, () => {
+if (typeof keepAliveTimer.unref === "function") {
+  keepAliveTimer.unref();
+}
+
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`CORS allowed origins: ${allowedOrigins.join(", ") || "none"}`);
 });
 
-// ========== CHANGE 2: Handle uncaught errors to prevent crashes ==========
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err);
-  // Do not exit – let the server keep running
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
 });
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });
-// ========== END CHANGE 2 ==========
+
+const shutdown = async (signal) => {
+  console.log(`${signal} received, shutting down gracefully.`);
+  clearInterval(keepAliveTimer);
+
+  await new Promise((resolve) => {
+    server.close(() => resolve());
+  });
+
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    console.error("Prisma disconnect failed:", error);
+  }
+
+  db.end((error) => {
+    if (error) {
+      console.error("MySQL disconnect failed:", error);
+    }
+
+    process.exit(0);
+  });
+};
+
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
