@@ -37,13 +37,10 @@ const configuredOrigins = String(process.env.CORS_ORIGIN || "")
   .filter(Boolean);
 const allowedOrigins = Array.from(
   new Set(
-    process.env.NODE_ENV === "production"
-      ? [...defaultProductionOrigins, ...configuredOrigins]
-      : [...defaultDevOrigins, ...configuredOrigins]
+    [...defaultDevOrigins, ...defaultProductionOrigins, ...configuredOrigins]
   )
 );
-const allowedOriginPatterns =
-  process.env.NODE_ENV === "production" ? defaultProductionOriginPatterns : [];
+const allowedOriginPatterns = defaultProductionOriginPatterns;
 const corsOptions =
   allowedOrigins.length > 0 || allowedOriginPatterns.length > 0
     ? {
