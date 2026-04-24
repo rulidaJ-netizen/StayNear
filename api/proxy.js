@@ -22,10 +22,21 @@ const readRequestBody = async (req) => {
   return chunks.length > 0 ? Buffer.concat(chunks) : undefined;
 };
 
-const buildTargetUrl = (pathParts, query) => {
-  const normalizedPath = Array.isArray(pathParts)
-    ? pathParts.map((part) => encodeURIComponent(String(part))).join("/")
-    : "";
+const normalizePathParts = (value) => {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => normalizePathParts(item));
+  }
+
+  return String(value || "")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+};
+
+const buildTargetUrl = (pathValue, query) => {
+  const normalizedPath = normalizePathParts(pathValue)
+    .map((part) => encodeURIComponent(part))
+    .join("/");
   const searchParams = new URLSearchParams();
 
   Object.entries(query || {}).forEach(([key, value]) => {
