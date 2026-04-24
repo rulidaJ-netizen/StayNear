@@ -7,6 +7,7 @@ import {
   getLandownerListing,
   saveLocationDetailsDraft,
 } from "../api/landownerApi";
+import { validateLocationDetailsForm } from "../utils/listingValidation";
 import "../styles/add-room.css";
 import "../styles/listing-draft.css";
 
@@ -31,6 +32,7 @@ export default function LocationDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [errors, setErrors] = useState({});
   const storageKey = getStorageKey(listingId);
 
   useEffect(() => {
@@ -86,6 +88,10 @@ export default function LocationDetails() {
       ...prev,
       [fieldName]: value,
     }));
+    setErrors((prev) => ({
+      ...prev,
+      [fieldName]: "",
+    }));
     setErrorMessage("");
   };
 
@@ -101,8 +107,11 @@ export default function LocationDetails() {
       return;
     }
 
-    if (!form.full_address.trim() || !form.distance_from_university.trim()) {
-      setErrorMessage("Full address and distance from university are required.");
+    const validationErrors = validateLocationDetailsForm(form);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrorMessage("Please fix the highlighted fields before saving.");
       return;
     }
 
@@ -119,6 +128,7 @@ export default function LocationDetails() {
       navigate("/landowner/dashboard");
     } catch (error) {
       console.error("Save location details error:", error);
+      setErrors(error.response?.data?.errors || {});
       setErrorMessage(
         error.response?.data?.message || "Failed to save location details."
       );
@@ -153,25 +163,37 @@ export default function LocationDetails() {
                 <ListingFormField label="Full Address" required>
                   <input
                     type="text"
-                    className="listing-input"
+                    className={`listing-input ${
+                      errors.full_address ? "has-error" : ""
+                    }`}
                     placeholder="Barangay, Municipality, City"
                     value={form.full_address}
                     onChange={(e) =>
                       handleChange("full_address", e.target.value)
                     }
                   />
+                  {errors.full_address ? (
+                    <div className="listing-form-error">{errors.full_address}</div>
+                  ) : null}
                 </ListingFormField>
 
                 <ListingFormField label="Distance from University" required>
                   <input
                     type="text"
-                    className="listing-input"
+                    className={`listing-input ${
+                      errors.distance_from_university ? "has-error" : ""
+                    }`}
                     placeholder="Enter distance information"
                     value={form.distance_from_university}
                     onChange={(e) =>
                       handleChange("distance_from_university", e.target.value)
                     }
                   />
+                  {errors.distance_from_university ? (
+                    <div className="listing-form-error">
+                      {errors.distance_from_university}
+                    </div>
+                  ) : null}
                 </ListingFormField>
 
                 <ListingFormField label="Reference Map">

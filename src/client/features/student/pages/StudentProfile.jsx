@@ -213,6 +213,9 @@ export default function StudentProfile() {
       });
     } catch (error) {
       console.error("Save user profile error:", error);
+      if (error.response?.data?.errors) {
+        setErrors(error.response.data.errors);
+      }
       setToast({
         type: "error",
         message: error.response?.data?.message || "Failed to update profile.",

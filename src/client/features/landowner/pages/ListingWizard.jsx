@@ -9,6 +9,12 @@ import {
   getLandownerListing,
   updateLandownerListing,
 } from "../api/landownerApi";
+import {
+  validateListingWizardStep,
+  validateLocationDetailsForm,
+  validatePricingAvailabilityForm,
+  validateRoomBasicsForm,
+} from "../utils/listingValidation";
 
 const amenityOptions = [
   "WiFi",
@@ -30,6 +36,8 @@ export default function ListingWizard({ mode = "create" }) {
   const [step, setStep] = useState(1);
   const [existingPhotos, setExistingPhotos] = useState([]);
   const [newPhotos, setNewPhotos] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [generalError, setGeneralError] = useState("");
   const [form, setForm] = useState({
     property_name: "",
     description: "",
@@ -84,6 +92,11 @@ export default function ListingWizard({ mode = "create" }) {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+    setErrors((prev) => ({
+      ...prev,
+      [e.target.name]: "",
+    }));
+    setGeneralError("");
   };
 
   const toggleAmenity = (amenity) => {
@@ -99,7 +112,33 @@ export default function ListingWizard({ mode = "create" }) {
     setNewPhotos(Array.from(e.target.files || []));
   };
 
+  const handleNextStep = () => {
+    const validationErrors = validateListingWizardStep(step, form);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setGeneralError("Please fix the highlighted fields before continuing.");
+      return;
+    }
+
+    setGeneralError("");
+    setStep((currentStep) => currentStep + 1);
+  };
+
   const submit = async () => {
+    const validationErrors = {
+      ...validateRoomBasicsForm(form),
+      ...validatePricingAvailabilityForm(form),
+      ...validateLocationDetailsForm(form),
+    };
+
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setGeneralError("Please fix the highlighted fields before saving.");
+      return;
+    }
+
     const formData = new FormData();
 
     formData.append("landowner_id", user.landowner_id);
@@ -122,6 +161,9 @@ export default function ListingWizard({ mode = "create" }) {
     });
 
     try {
+      setGeneralError("");
+      setErrors({});
+
       if (mode === "create") {
         await createLandownerListing(formData);
         alert("Listing published successfully");
@@ -133,7 +175,8 @@ export default function ListingWizard({ mode = "create" }) {
       navigate("/landowner/dashboard");
     } catch (error) {
       console.error("Submit listing error:", error);
-      alert(error.response?.data?.message || "Failed to save listing");
+      setErrors(error.response?.data?.errors || {});
+      setGeneralError(error.response?.data?.message || "Failed to save listing");
     }
   };
 
@@ -166,6 +209,10 @@ export default function ListingWizard({ mode = "create" }) {
         </div>
 
         <div className="bg-white border rounded-3xl p-8 shadow-sm">
+          {generalError ? (
+            <div className="listing-form-error">{generalError}</div>
+          ) : null}
+
           {step === 1 && (
             <div className="space-y-5">
               <h2 className="text-3xl font-bold">Basic Information</h2>
@@ -176,9 +223,14 @@ export default function ListingWizard({ mode = "create" }) {
                   name="property_name"
                   value={form.property_name}
                   onChange={handleChange}
-                  className="w-full border rounded-2xl p-4"
+                  className={`w-full border rounded-2xl p-4 ${
+                    errors.property_name ? "border-red-500" : ""
+                  }`}
                   placeholder="e.g. Cozy Student Room near UP"
                 />
+                {errors.property_name ? (
+                  <div className="listing-form-error">{errors.property_name}</div>
+                ) : null}
               </div>
 
               <div>
@@ -187,9 +239,14 @@ export default function ListingWizard({ mode = "create" }) {
                   name="description"
                   value={form.description}
                   onChange={handleChange}
-                  className="w-full border rounded-2xl p-4 min-h-40"
+                  className={`w-full border rounded-2xl p-4 min-h-40 ${
+                    errors.description ? "border-red-500" : ""
+                  }`}
                   placeholder="Describe the room, facilities, and nearby amenities..."
                 />
+                {errors.description ? (
+                  <div className="listing-form-error">{errors.description}</div>
+                ) : null}
               </div>
 
               <div>
@@ -198,9 +255,14 @@ export default function ListingWizard({ mode = "create" }) {
                   name="contact_number"
                   value={form.contact_number}
                   onChange={handleChange}
-                  className="w-full border rounded-2xl p-4"
-                  placeholder="+63 917 123 4567"
+                  className={`w-full border rounded-2xl p-4 ${
+                    errors.contact_number ? "border-red-500" : ""
+                  }`}
+                  placeholder="09171234567"
                 />
+                {errors.contact_number ? (
+                  <div className="listing-form-error">{errors.contact_number}</div>
+                ) : null}
               </div>
             </div>
           )}
@@ -255,9 +317,14 @@ export default function ListingWizard({ mode = "create" }) {
                   name="monthly_rent"
                   value={form.monthly_rent}
                   onChange={handleChange}
-                  className="w-full border rounded-2xl p-4"
+                  className={`w-full border rounded-2xl p-4 ${
+                    errors.monthly_rent ? "border-red-500" : ""
+                  }`}
                   placeholder="5000"
                 />
+                {errors.monthly_rent ? (
+                  <div className="listing-form-error">{errors.monthly_rent}</div>
+                ) : null}
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -268,9 +335,14 @@ export default function ListingWizard({ mode = "create" }) {
                     name="total_rooms"
                     value={form.total_rooms}
                     onChange={handleChange}
-                    className="w-full border rounded-2xl p-4"
+                    className={`w-full border rounded-2xl p-4 ${
+                      errors.total_rooms ? "border-red-500" : ""
+                    }`}
                     placeholder="5"
                   />
+                  {errors.total_rooms ? (
+                    <div className="listing-form-error">{errors.total_rooms}</div>
+                  ) : null}
                 </div>
 
                 <div>
@@ -280,9 +352,16 @@ export default function ListingWizard({ mode = "create" }) {
                     name="available_rooms"
                     value={form.available_rooms}
                     onChange={handleChange}
-                    className="w-full border rounded-2xl p-4"
+                    className={`w-full border rounded-2xl p-4 ${
+                      errors.available_rooms ? "border-red-500" : ""
+                    }`}
                     placeholder="2"
                   />
+                  {errors.available_rooms ? (
+                    <div className="listing-form-error">
+                      {errors.available_rooms}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -321,9 +400,14 @@ export default function ListingWizard({ mode = "create" }) {
                   name="location_city"
                   value={form.location_city}
                   onChange={handleChange}
-                  className="w-full border rounded-2xl p-4"
+                  className={`w-full border rounded-2xl p-4 ${
+                    errors.location_city ? "border-red-500" : ""
+                  }`}
                   placeholder="e.g. Quezon City"
                 />
+                {errors.location_city ? (
+                  <div className="listing-form-error">{errors.location_city}</div>
+                ) : null}
               </div>
 
               <div>
@@ -332,9 +416,14 @@ export default function ListingWizard({ mode = "create" }) {
                   name="full_address"
                   value={form.full_address}
                   onChange={handleChange}
-                  className="w-full border rounded-2xl p-4"
+                  className={`w-full border rounded-2xl p-4 ${
+                    errors.full_address ? "border-red-500" : ""
+                  }`}
                   placeholder="Barangay, Municipality, City, Country"
                 />
+                {errors.full_address ? (
+                  <div className="listing-form-error">{errors.full_address}</div>
+                ) : null}
               </div>
 
               <div>
@@ -345,9 +434,16 @@ export default function ListingWizard({ mode = "create" }) {
                   name="distance_from_university"
                   value={form.distance_from_university}
                   onChange={handleChange}
-                  className="w-full border rounded-2xl p-4"
-                  placeholder="e.g. 500m from UP Diliman"
+                  className={`w-full border rounded-2xl p-4 ${
+                    errors.distance_from_university ? "border-red-500" : ""
+                  }`}
+                  placeholder="e.g. 1,200"
                 />
+                {errors.distance_from_university ? (
+                  <div className="listing-form-error">
+                    {errors.distance_from_university}
+                  </div>
+                ) : null}
               </div>
 
               <div>
@@ -375,7 +471,7 @@ export default function ListingWizard({ mode = "create" }) {
 
             {step < 4 ? (
               <button
-                onClick={() => setStep(step + 1)}
+                onClick={handleNextStep}
                 className="flex-1 bg-blue-500 text-white rounded-2xl py-4 text-xl"
               >
                 Next

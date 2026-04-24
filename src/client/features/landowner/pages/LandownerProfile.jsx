@@ -216,6 +216,9 @@ export default function LandownerProfile() {
       });
     } catch (error) {
       console.error("Save landowner profile error:", error);
+      if (error.response?.data?.errors) {
+        setErrors(error.response.data.errors);
+      }
       setToast({
         type: "error",
         message: error.response?.data?.message || "Failed to update profile.",

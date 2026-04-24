@@ -1,12 +1,25 @@
 import { db } from "../../../shared/db.js";
+import {
+  hasValidationErrors,
+  sendValidationError,
+} from "../../../shared/validation/inputValidation.js";
+import { validateRoomBasicsPayload } from "../../../shared/validation/listingValidation.js";
 
 export const createRoom = (req, res) => {
   const { propertyName, description, contactNumber } = req.body;
 
-  if (!propertyName || !description || !contactNumber) {
-    return res.status(400).json({
-      message: "Property name, description, and contact number are required.",
-    });
+  const validationErrors = validateRoomBasicsPayload({
+    propertyName,
+    description,
+    contactNumber,
+  });
+
+  if (hasValidationErrors(validationErrors)) {
+    return sendValidationError(
+      res,
+      validationErrors,
+      "Please correct the invalid listing fields."
+    );
   }
 
   const landownerId = req.user?.landowner_id; 

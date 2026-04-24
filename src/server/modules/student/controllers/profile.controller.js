@@ -3,6 +3,14 @@ import {
   buildFullName,
   splitFullName,
 } from "../../../shared/utils/profileUtils.js";
+import {
+  hasValidationErrors,
+  sendValidationError,
+  validateAddressField,
+  validateContactNumberField,
+  validateEmailField,
+  validateFullNameField,
+} from "../../../shared/validation/inputValidation.js";
 
 const serializeProfile = (record, idField) => ({
   [idField]: record[idField],
@@ -36,8 +44,20 @@ export const updateStudentProfile = (req, res) => {
   const { full_name, email, address, gender, age, mobile_no } = req.body;
   const { firstName, middleName, lastName } = splitFullName(full_name);
 
-  if (!firstName || !email) {
-    return res.status(400).json({ message: "Full name and email are required" });
+  const validationErrors = {
+    full_name: validateFullNameField(full_name, { label: "Full name" }),
+    email: validateEmailField(email),
+    address: validateAddressField(address),
+    mobile_no: validateContactNumberField(mobile_no, "Contact number"),
+    gender: String(gender ?? "").trim() ? "" : "Gender is required.",
+  };
+
+  if (hasValidationErrors(validationErrors)) {
+    return sendValidationError(
+      res,
+      validationErrors,
+      "Please correct the invalid profile fields."
+    );
   }
 
   db.query(

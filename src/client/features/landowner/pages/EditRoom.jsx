@@ -4,9 +4,8 @@ import {
   getRoomBasicInfoById,
   updateRoomBasicInfo,
 } from "../api/landownerApi";
+import { validateRoomBasicsForm } from "../utils/listingValidation";
 import "../styles/add-room.css";
-
-const CONTACT_NUMBER_PATTERN = /^[+0-9\s-]{10,15}$/;
 
 const normalizeRoomBasicInfo = (response) => {
   const candidates = [
@@ -131,20 +130,24 @@ export default function EditRoom() {
   }
 
   function validate() {
+    const validationErrors = validateRoomBasicsForm({
+      property_name: form.propertyName,
+      description: form.description,
+      contact_number: form.contactNumber,
+    });
+
     const nextErrors = {};
 
-    if (!form.propertyName.trim()) {
-      nextErrors.propertyName = "Property name is required";
+    if (validationErrors.property_name) {
+      nextErrors.propertyName = validationErrors.property_name;
     }
 
-    if (!form.description.trim()) {
-      nextErrors.description = "Description is required";
+    if (validationErrors.description) {
+      nextErrors.description = validationErrors.description;
     }
 
-    if (!form.contactNumber.trim()) {
-      nextErrors.contactNumber = "Contact number is required";
-    } else if (!CONTACT_NUMBER_PATTERN.test(form.contactNumber.trim())) {
-      nextErrors.contactNumber = "Enter a valid contact number";
+    if (validationErrors.contact_number) {
+      nextErrors.contactNumber = validationErrors.contact_number;
     }
 
     return nextErrors;
@@ -250,7 +253,7 @@ export default function EditRoom() {
                 name="propertyName"
                 value={form.propertyName}
                 onChange={handleChange}
-                className="form-input"
+                className={`form-input ${errors.propertyName ? "has-error" : ""}`}
               />
               {errors.propertyName && (
                 <small>{errors.propertyName}</small>
@@ -263,7 +266,7 @@ export default function EditRoom() {
                 name="description"
                 value={form.description}
                 onChange={handleChange}
-                className="form-textarea"
+                className={`form-textarea ${errors.description ? "has-error" : ""}`}
                 rows="6"
               />
               {errors.description && (
@@ -277,7 +280,7 @@ export default function EditRoom() {
                 name="contactNumber"
                 value={form.contactNumber}
                 onChange={handleChange}
-                className="form-input"
+                className={`form-input ${errors.contactNumber ? "has-error" : ""}`}
               />
               {errors.contactNumber && (
                 <small>{errors.contactNumber}</small>

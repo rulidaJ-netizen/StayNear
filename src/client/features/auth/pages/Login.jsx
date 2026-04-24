@@ -1,24 +1,41 @@
 import "../styles/auth.css";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Mail, Lock, UserRound } from "lucide-react";
 import { loginUser } from "../api/authApi";
 import { useAuthSession } from "../context/useAuthSession";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setUser } = useAuthSession();
 
   const [role, setRole] = useState("student");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
 
+  useEffect(() => {
+    if (!location.state?.registrationSuccess) {
+      return;
+    }
+
+    setSuccess(location.state.registrationSuccess);
+    setError("");
+    setForm((prev) => ({
+      ...prev,
+      email: location.state?.registeredEmail || prev.email,
+    }));
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
   const handleChange = (e) => {
     setError("");
+    setSuccess("");
     setForm((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
@@ -146,6 +163,7 @@ export default function Login() {
               <div className="auth-subtitle">Sign in to continue</div>
 
               {error && <div className="error-box">{error}</div>}
+              {success && <div className="success-box">{success}</div>}
 
               <div className="role-toggle">
                 <button

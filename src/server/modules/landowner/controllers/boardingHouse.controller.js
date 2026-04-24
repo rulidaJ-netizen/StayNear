@@ -1,14 +1,30 @@
 import { db } from "../../../shared/db.js";
 import { toUploadsUrl } from "../../../shared/config/runtimePaths.js";
+import {
+  hasValidationErrors,
+  sendValidationError,
+} from "../../../shared/validation/inputValidation.js";
+import { validateRoomBasicsPayload } from "../../../shared/validation/listingValidation.js";
 
 export const createBoardingHouseDraft = (req, res) => {
   const { landowner_id, name, description, contact_number } = req.body;
 
-  if (!landowner_id || !name || !description || !contact_number) {
-    return res.status(400).json({
-      message:
-        "landowner_id, name, description, and contact_number are required",
-    });
+  if (!landowner_id) {
+    return res.status(400).json({ message: "landowner_id is required" });
+  }
+
+  const validationErrors = validateRoomBasicsPayload({
+    propertyName: name,
+    description,
+    contactNumber: contact_number,
+  });
+
+  if (hasValidationErrors(validationErrors)) {
+    return sendValidationError(
+      res,
+      validationErrors,
+      "Please correct the invalid listing fields."
+    );
   }
 
   db.query(

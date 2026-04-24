@@ -1,5 +1,14 @@
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../../shared/prismaClient.js";
+import {
+  hasValidationErrors,
+  sendValidationError,
+  validateAddressField,
+  validateContactNumberField,
+  validateEmailField,
+  validateNameField,
+} from "../../shared/validation/inputValidation.js";
 
 const AUTH_INCLUDE = {
   student: true,
@@ -18,6 +27,7 @@ const normalizeAccountType = (value) =>
   String(value ?? "").trim().toUpperCase();
 
 const normalizeEmail = (value) => String(value ?? "").trim().toLowerCase();
+const HASH_ROUNDS = 12;
 
 const serializeAuthUser = (account) => ({
   account_id: account.accountId ?? null,
@@ -26,6 +36,24 @@ const serializeAuthUser = (account) => ({
   student_id: account.studentId ?? account.student?.studentId ?? null,
   landowner_id: account.landownerId ?? account.landowner?.landownerId ?? null,
 });
+
+const isBcryptHash = (value) =>
+  /^\$2[aby]\$\d{2}\$/.test(String(value ?? "").trim());
+
+const verifyPassword = async (password, storedPassword) => {
+  const normalizedStoredPassword = String(storedPassword ?? "");
+
+  if (!normalizedStoredPassword) {
+    return false;
+  }
+
+  if (isBcryptHash(normalizedStoredPassword)) {
+    return bcrypt.compare(password, normalizedStoredPassword);
+  }
+
+  // Backward compatibility for existing plain-text rows.
+  return password === normalizedStoredPassword;
+};
 
 const buildProfileData = ({
   firstName,
@@ -63,35 +91,51 @@ export const register = async (req, res) => {
       mobileNo,
     } = req.body;
 
-    const missingFields = [
-      "account_type",
-      "firstName",
-      "lastName",
-      "email",
-      "password",
-      "address",
-      "gender",
-      "birthdate",
-      "mobileNo",
-    ].filter((field) => !hasValue(req.body[field]));
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        message: `Missing required fields: ${missingFields.join(", ")}`,
-      });
-    }
-
     const normalizedAccountType = normalizeAccountType(account_type);
     const normalizedEmail = normalizeEmail(email);
+    const validationErrors = {
+      account_type: hasValue(account_type) ? "" : "Account type is required.",
+      firstName: validateNameField(firstName, "First name"),
+      lastName: validateNameField(lastName, "Last name"),
+      middleName: validateNameField(middleName, "Middle name", {
+        required: false,
+      }),
+      email: validateEmailField(normalizedEmail),
+      address: validateAddressField(address),
+      mobile_no: validateContactNumberField(mobileNo, "Contact number"),
+      password: hasValue(password) ? "" : "Password is required.",
+      gender: hasValue(gender) ? "" : "Gender is required.",
+      birthdate: hasValue(birthdate) ? "" : "Birthdate is required.",
+    };
+
+    if (hasValue(password) && String(password).length < 6) {
+      validationErrors.password = "Password must be at least 6 characters.";
+    }
+
+    if (
+      hasValue(account_type) &&
+      !["STUDENT", "LANDOWNER"].includes(normalizedAccountType)
+    ) {
+      validationErrors.account_type = "Invalid account type.";
+    }
+
+    if (hasValue(birthdate)) {
+      const parsedBirthdate = new Date(birthdate);
+
+      if (Number.isNaN(parsedBirthdate.getTime())) {
+        validationErrors.birthdate = "Invalid birthdate.";
+      }
+    }
+
+    if (hasValidationErrors(validationErrors)) {
+      return sendValidationError(
+        res,
+        validationErrors,
+        "Please correct the invalid registration fields."
+      );
+    }
+
     const parsedBirthdate = new Date(birthdate);
-
-    if (!["STUDENT", "LANDOWNER"].includes(normalizedAccountType)) {
-      return res.status(400).json({ message: "Invalid account type" });
-    }
-
-    if (Number.isNaN(parsedBirthdate.getTime())) {
-      return res.status(400).json({ message: "Invalid birthdate" });
-    }
 
     const existingAccount = await prisma.account.findUnique({
       where: { email: normalizedEmail },
@@ -111,12 +155,13 @@ export const register = async (req, res) => {
       birthdate: parsedBirthdate,
       mobileNo,
     });
+    const hashedPassword = await bcrypt.hash(password, HASH_ROUNDS);
 
-    const account = await prisma.account.create({
+    await prisma.account.create({
       data: {
         accountType: normalizedAccountType,
         email: normalizedEmail,
-        password,
+        password: hashedPassword,
         ...(normalizedAccountType === "STUDENT"
           ? {
               student: {
@@ -129,12 +174,10 @@ export const register = async (req, res) => {
               },
             }),
       },
-      include: AUTH_INCLUDE,
     });
 
     return res.status(201).json({
-      message: "Registration successful",
-      user: serializeAuthUser(account),
+      message: "Registration successful. Please log in with your new account.",
     });
   } catch (error) {
     console.error("Auth register error:", error);
@@ -164,7 +207,9 @@ export const login = async (req, res) => {
       return res.status(404).json({ message: "Account not found" });
     }
 
-    if (account.password !== password) {
+    const passwordMatches = await verifyPassword(password, account.password);
+
+    if (!passwordMatches) {
       return res.status(401).json({ message: "Incorrect Password." });
     }
 

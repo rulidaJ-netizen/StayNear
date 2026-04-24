@@ -13,13 +13,15 @@ import {
   } from "lucide-react";
 import { registerUser } from "../api/authApi";
 import { useAuthSession } from "../context/useAuthSession";
+import { validateRegisterForm } from "../utils/registerValidation";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { setUser } = useAuthSession();
+  const { clearUser } = useAuthSession();
   const [role, setRole] = useState("student");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");   // <-- new error state
+  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
 
   const [form, setForm] = useState({
     firstName: "",
@@ -35,47 +37,31 @@ export default function Register() {
   });
 
   const handleChange = (e) => {
-    setError("");   // clear error when user starts typing
     const { name, value } = e.target;
+    setError("");
     setForm((prev) => ({
       ...prev,
       [name]: value,
     }));
-  };
 
-  const validateForm = () => {
-    if (
-      !form.firstName.trim() ||
-      !form.lastName.trim() ||
-      !form.email.trim() ||
-      !form.password.trim() ||
-      !form.confirmPassword.trim() ||
-      !form.address.trim() ||
-      !form.gender.trim() ||
-      !form.birthdate.trim() ||
-      !form.mobile_no.trim()
-    ) {
-      setError("Please fill in all required fields");
-      return false;
-    }
-
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match");
-      return false;
-    }
-
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return false;
-    }
-
-    return true;
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (isSubmitting || !validateForm()) {
+    if (isSubmitting) {
+      return;
+    }
+
+    const validationErrors = validateRegisterForm(form);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setError("Please fix the highlighted fields before submitting.");
       return;
     }
 
@@ -94,27 +80,34 @@ export default function Register() {
 
     try {
       setIsSubmitting(true);
+      setError("");
+      setErrors({});
       const data = await registerUser(payload);
-      const user = setUser(data?.user);
-
-      if (!user) {
-        setError(data?.message || "Registration failed");
-        return;
-      }
-
-      navigate(
-        user.account_type === "landowner"
-          ? "/landowner/dashboard"
-          : "/student/dashboard"
-      );
+      clearUser();
+      navigate("/", {
+        replace: true,
+        state: {
+          registrationSuccess:
+            data?.message ||
+            "Registration successful. Please log in with your new account.",
+          registeredEmail: payload.email,
+        },
+      });
     } catch (error) {
       console.error("Register error:", error);
-      setError(
-        error.response?.data?.message ||
-          error.response?.data?.error ||
-          error.message ||
-          "Something went wrong during registration"
-      );
+      const serverErrors = error.response?.data?.errors;
+
+      if (serverErrors && typeof serverErrors === "object") {
+        setErrors(serverErrors);
+        setError(error.response?.data?.message || "Validation failed.");
+      } else {
+        setError(
+          error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Something went wrong during registration"
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -200,10 +193,14 @@ export default function Register() {
                   <input
                     type="text"
                     name="firstName"
-                    className="form-input"
+                    className={`form-input ${errors.firstName ? "has-error" : ""}`}
                     value={form.firstName}
                     onChange={handleChange}
+                    aria-invalid={Boolean(errors.firstName)}
                   />
+                  {errors.firstName ? (
+                    <div className="field-error">{errors.firstName}</div>
+                  ) : null}
                 </div>
 
                 {/* Last Name */}
@@ -212,10 +209,14 @@ export default function Register() {
                   <input
                     type="text"
                     name="lastName"
-                    className="form-input"
+                    className={`form-input ${errors.lastName ? "has-error" : ""}`}
                     value={form.lastName}
                     onChange={handleChange}
+                    aria-invalid={Boolean(errors.lastName)}
                   />
+                  {errors.lastName ? (
+                    <div className="field-error">{errors.lastName}</div>
+                  ) : null}
                 </div>
 
                 {/* Middle Name */}
@@ -226,11 +227,17 @@ export default function Register() {
                     <input
                       type="text"
                       name="middleName"
-                      className="form-input has-icon"
+                      className={`form-input has-icon ${
+                        errors.middleName ? "has-error" : ""
+                      }`}
                       value={form.middleName}
                       onChange={handleChange}
+                      aria-invalid={Boolean(errors.middleName)}
                     />
                   </div>
+                  {errors.middleName ? (
+                    <div className="field-error">{errors.middleName}</div>
+                  ) : null}
                 </div>
 
                 {/* Email */}
@@ -241,11 +248,17 @@ export default function Register() {
                     <input
                       type="email"
                       name="email"
-                      className="form-input has-icon"
+                      className={`form-input has-icon ${
+                        errors.email ? "has-error" : ""
+                      }`}
                       value={form.email}
                       onChange={handleChange}
+                      aria-invalid={Boolean(errors.email)}
                     />
                   </div>
+                  {errors.email ? (
+                    <div className="field-error">{errors.email}</div>
+                  ) : null}
                 </div>
 
                 {/* Birthday */}
@@ -256,11 +269,17 @@ export default function Register() {
                     <input
                       type="date"
                       name="birthdate"
-                      className="form-input has-icon"
+                      className={`form-input has-icon ${
+                        errors.birthdate ? "has-error" : ""
+                      }`}
                       value={form.birthdate}
                       onChange={handleChange}
+                      aria-invalid={Boolean(errors.birthdate)}
                     />
                   </div>
+                  {errors.birthdate ? (
+                    <div className="field-error">{errors.birthdate}</div>
+                  ) : null}
                 </div>
 
                 {/* Gender */}
@@ -270,9 +289,12 @@ export default function Register() {
                     <User className="input-icon " size={18} />
                     <select
                       name="gender"
-                      className="form-select has-icon"   
+                      className={`form-select has-icon ${
+                        errors.gender ? "has-error" : ""
+                      }`}
                       value={form.gender}
                       onChange={handleChange}
+                      aria-invalid={Boolean(errors.gender)}
                     >
                       <option value="">Select Gender</option>
                       <option value="Male">Male</option>
@@ -280,6 +302,9 @@ export default function Register() {
                       <option value="Other">Other</option>
                     </select>
                   </div>
+                  {errors.gender ? (
+                    <div className="field-error">{errors.gender}</div>
+                  ) : null}
                 </div>
 
                 {/* Contact */}
@@ -290,11 +315,17 @@ export default function Register() {
                     <input
                       type="text"
                       name="mobile_no"
-                      className="form-input has-icon"
+                      className={`form-input has-icon ${
+                        errors.mobile_no ? "has-error" : ""
+                      }`}
                       value={form.mobile_no}
                       onChange={handleChange}
+                      aria-invalid={Boolean(errors.mobile_no)}
                     />
                   </div>
+                  {errors.mobile_no ? (
+                    <div className="field-error">{errors.mobile_no}</div>
+                  ) : null}
                 </div>
 
                 {/* Address */}
@@ -305,11 +336,17 @@ export default function Register() {
                     <input
                       type="text"
                       name="address"
-                      className="form-input has-icon"
+                      className={`form-input has-icon ${
+                        errors.address ? "has-error" : ""
+                      }`}
                       value={form.address}
                       onChange={handleChange}
+                      aria-invalid={Boolean(errors.address)}
                     />
                   </div>
+                  {errors.address ? (
+                    <div className="field-error">{errors.address}</div>
+                  ) : null}
                 </div>
 
                 {/* Password */}
@@ -320,11 +357,17 @@ export default function Register() {
                     <input
                       type="password"
                       name="password"
-                      className="form-input has-icon"
+                      className={`form-input has-icon ${
+                        errors.password ? "has-error" : ""
+                      }`}
                       value={form.password}
                       onChange={handleChange}
+                      aria-invalid={Boolean(errors.password)}
                     />
                   </div>
+                  {errors.password ? (
+                    <div className="field-error">{errors.password}</div>
+                  ) : null}
                 </div>
 
                 {/* Confirm Password */}
@@ -335,11 +378,17 @@ export default function Register() {
                     <input
                       type="password"
                       name="confirmPassword"
-                      className="form-input has-icon"
+                      className={`form-input has-icon ${
+                        errors.confirmPassword ? "has-error" : ""
+                      }`}
                       value={form.confirmPassword}
                       onChange={handleChange}
+                      aria-invalid={Boolean(errors.confirmPassword)}
                     />
                   </div>
+                  {errors.confirmPassword ? (
+                    <div className="field-error">{errors.confirmPassword}</div>
+                  ) : null}
                 </div>
               </div>
 

@@ -46,6 +46,7 @@ const normalizeListing = (data) => {
     name: data?.name ?? data?.property_name ?? "Property Details",
     description: data?.description ?? "No description available.",
     contactNumber: data?.contact_number ?? data?.contactNumber ?? "Not provided",
+    viewCount: Number(data?.view_count ?? data?.viewCount ?? 0),
     location: data?.location ?? "",
     price: Number(data?.monthly_rent ?? data?.min_price ?? 0),
     availabilityStatus: String(data?.availability_status ?? "unavailable"),
@@ -89,9 +90,22 @@ export default function RoomDetail() {
         setListing(normalizeListing(data));
 
         if (user?.account_type === "student") {
-          recordStudentRoomView(id).catch((error) => {
-            console.error("Failed to record room view:", error);
-          });
+          recordStudentRoomView(id)
+            .then((response) => {
+              if (typeof response?.view_count === "number") {
+                setListing((currentListing) =>
+                  currentListing
+                    ? {
+                        ...currentListing,
+                        viewCount: Number(response.view_count),
+                      }
+                    : currentListing
+                );
+              }
+            })
+            .catch((error) => {
+              console.error("Failed to record room view:", error);
+            });
         }
       } catch (error) {
         console.error("Load room detail error:", error);
@@ -235,6 +249,13 @@ export default function RoomDetail() {
                   <span className={styles.metaLabel}>Distance</span>
                   <span className={styles.metaValue}>
                     {listing.distanceFromUniversity || "Not provided"}
+                  </span>
+                </div>
+
+                <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>Views</span>
+                  <span className={styles.metaValue}>
+                    {listing.viewCount.toLocaleString()}
                   </span>
                 </div>
               </div>

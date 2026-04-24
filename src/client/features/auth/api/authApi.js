@@ -1,6 +1,7 @@
 import api from "../../../shared/api/client";
 
 const USER_STORAGE_KEY = "user";
+const TOKEN_STORAGE_KEY = "token";
 
 export const normalizeAuthUser = (user) => {
   if (!user || typeof user !== "object") {
@@ -67,6 +68,7 @@ export const getStoredUser = () => {
 
 export const logoutUser = () => {
   localStorage.removeItem(USER_STORAGE_KEY);
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
 };
 
 export const updateStoredUser = (patch) => {

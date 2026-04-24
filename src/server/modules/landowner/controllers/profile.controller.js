@@ -4,6 +4,12 @@ import {
   buildFullName,
   splitFullName,
 } from "../../../shared/utils/profileUtils.js";
+import {
+  hasValidationErrors,
+  sendValidationError,
+  validateEmailField,
+  validateFullNameField,
+} from "../../../shared/validation/inputValidation.js";
 import { toClientAvailabilityStatus } from "../../../shared/utils/listingUtils.js";
 import {
   ensureDirectory,
@@ -12,9 +18,6 @@ import {
   resolveUploadsPath,
   toUploadsUrl,
 } from "../../../shared/config/runtimePaths.js";
-
-const FULL_NAME_REGEX = /^[\p{L}][\p{L}\s.'-]*$/u;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const storageDir = resolveStoragePath();
 const avatarsDir = resolveUploadsPath("avatars", "landowners");
@@ -159,25 +162,20 @@ export const updateLandownerProfile = (req, res) => {
     return res.status(400).json({ message: "landowner_id is required" });
   }
 
-  if (!fullName) {
-    return res.status(400).json({ message: "Full name is required" });
-  }
+  const validationErrors = {
+    full_name: validateFullNameField(fullName, { label: "Full name" }),
+    email: validateEmailField(email),
+  };
 
-  if (!FULL_NAME_REGEX.test(fullName)) {
-    return res.status(400).json({ message: "Full name must contain letters only" });
-  }
-
-  if (!EMAIL_REGEX.test(email)) {
-    return res.status(400).json({ message: "A valid email address is required" });
+  if (hasValidationErrors(validationErrors)) {
+    return sendValidationError(
+      res,
+      validationErrors,
+      "Please correct the invalid profile fields."
+    );
   }
 
   const { firstName, middleName, lastName } = splitFullName(fullName);
-
-  if (!firstName || !lastName) {
-    return res.status(400).json({
-      message: "Please provide your first and last name",
-    });
-  }
 
   db.query(
     "SELECT account_id FROM account WHERE email = ? AND (landowner_id IS NULL OR landowner_id <> ?)",

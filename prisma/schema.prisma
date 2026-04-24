@@ -74,7 +74,7 @@ model PropertyView {
   boardingHouse   BoardingHouse @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade)
   student         Student       @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
 
-  @@unique([studentId, boardinghouseId])
+  @@unique([studentId, boardinghouseId], map: "property_views_student_id_boardinghouse_id_key")
   @@index([boardinghouseId], map: "property_views_boardinghouse_id_fkey")
   @@map("property_views")
 }

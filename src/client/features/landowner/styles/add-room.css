@@ -151,6 +151,27 @@
   box-shadow: 0 0 0 4px rgba(76, 139, 248, 0.12);
 }
 
+.form-input.has-error,
+.form-textarea.has-error {
+  border-color: #d93025;
+}
+
+.form-error-banner {
+  margin-bottom: 18px;
+  border-radius: 16px;
+  background: #feeceb;
+  color: #b3261e;
+  padding: 14px 16px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.form-error-text {
+  color: #b3261e;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .hidden-file-input {
   display: none;
 }

@@ -7,6 +7,18 @@ import {
   validatePricingAvailability,
 } from "../../../shared/utils/listingUtils.js";
 import { toUploadsUrl } from "../../../shared/config/runtimePaths.js";
+import {
+  hasValidationErrors,
+  sendValidationError,
+  validateAddressField,
+  validateContactNumberField,
+  validateDistanceFromUniversityField,
+  validateLocationDetailsField,
+} from "../../../shared/validation/inputValidation.js";
+import {
+  validateListingLocationPayload,
+  validateRoomBasicsPayload,
+} from "../../../shared/validation/listingValidation.js";
 
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 
@@ -202,18 +214,29 @@ export const createListing = (req, res) => {
   const propertyName = String(property_name ?? name ?? "").trim();
   const fullAddress = String(full_address ?? location ?? "").trim();
 
-  if (
-    !landowner_id ||
-    !propertyName ||
-    !description ||
-    !contact_number ||
-    !monthly_rent ||
-    !total_rooms ||
-    !fullAddress
-  ) {
-    return res.status(400).json({
-      message: "Please fill in all required listing fields",
-    });
+  if (!landowner_id) {
+    return res.status(400).json({ message: "landowner_id is required" });
+  }
+
+  const validationErrors = {
+    ...validateRoomBasicsPayload({
+      propertyName,
+      description,
+      contactNumber: contact_number,
+    }),
+    ...validateListingLocationPayload({
+      fullAddress,
+      distanceFromUniversity: distance_from_university,
+      locationDetails: location_city,
+    }),
+  };
+
+  if (hasValidationErrors(validationErrors)) {
+    return sendValidationError(
+      res,
+      validationErrors,
+      "Please correct the invalid listing fields."
+    );
   }
 
   const amenitiesText = normalizeAmenities(amenities);
@@ -408,6 +431,51 @@ export const updateListing = (req, res) => {
         available_rooms,
       })
     : null;
+
+  const validationErrors = {};
+
+  if (shouldUpdateName && !String(property_name ?? name ?? "").trim()) {
+    validationErrors.property_name = "Property name is required.";
+  }
+
+  if (hasOwn(req.body, "description") && !String(description ?? "").trim()) {
+    validationErrors.description = "Description is required.";
+  }
+
+  if (hasOwn(req.body, "contact_number")) {
+    validationErrors.contact_number = validateContactNumberField(
+      contact_number,
+      "Contact number"
+    );
+  }
+
+  if (shouldUpdateLocation) {
+    validationErrors.full_address = validateAddressField(
+      full_address ?? location,
+      "Full address"
+    );
+  }
+
+  if (hasOwn(req.body, "distance_from_university")) {
+    validationErrors.distance_from_university =
+      validateDistanceFromUniversityField(distance_from_university);
+  }
+
+  if (hasOwn(req.body, "location_city")) {
+    validationErrors.location_city = validateLocationDetailsField(
+      location_city,
+      "Location details",
+      { required: false }
+    );
+  }
+
+  if (hasValidationErrors(validationErrors)) {
+    return sendValidationError(
+      res,
+      validationErrors,
+      "Please correct the invalid listing fields."
+    );
+  }
 
   if (pricingValidationError) {
     return res.status(400).json({
