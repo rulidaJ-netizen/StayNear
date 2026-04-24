@@ -30,6 +30,7 @@ const defaultDevOrigins = [
   "http://127.0.0.1:4173",
 ];
 const defaultProductionOrigins = ["https://stay-near-ten.vercel.app"];
+const defaultProductionOriginPatterns = [/^https:\/\/.*\.vercel\.app$/];
 const configuredOrigins = String(process.env.CORS_ORIGIN || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -41,11 +42,17 @@ const allowedOrigins = Array.from(
       : [...defaultDevOrigins, ...configuredOrigins]
   )
 );
+const allowedOriginPatterns =
+  process.env.NODE_ENV === "production" ? defaultProductionOriginPatterns : [];
 const corsOptions =
-  allowedOrigins.length > 0
+  allowedOrigins.length > 0 || allowedOriginPatterns.length > 0
     ? {
         origin(origin, callback) {
-          if (!origin || allowedOrigins.includes(origin)) {
+          if (
+            !origin ||
+            allowedOrigins.includes(origin) ||
+            allowedOriginPatterns.some((pattern) => pattern.test(origin))
+          ) {
             callback(null, true);
             return;
           }
