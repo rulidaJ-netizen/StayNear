@@ -126,6 +126,10 @@ export default function Favorites() {
                     src={resolveFavoriteImage(item)}
                     alt={item.name}
                     className="favorite-card-image"
+                    loading="lazy"
+                    decoding="async"
+                    width="700"
+                    height="420"
                   />
                   <button
                     type="button"

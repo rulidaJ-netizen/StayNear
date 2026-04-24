@@ -1,4 +1,5 @@
 import {
+  validateBirthdateField,
   validateEmailField,
   validateFullNameField,
 } from "../../../shared/utils/inputValidation";
@@ -17,6 +18,12 @@ export const validateLandownerProfileForm = (form) => {
 
   if (emailError) {
     errors.email = emailError;
+  }
+
+  const birthdateError = validateBirthdateField(form.birthdate);
+
+  if (birthdateError) {
+    errors.birthdate = birthdateError;
   }
 
   return errors;

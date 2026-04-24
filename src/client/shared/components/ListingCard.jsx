@@ -31,6 +31,10 @@ export default function ListingCard({
           }
           alt={listing.name}
           className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+          width="600"
+          height="400"
         />
 
         {!showOwnerActions && (

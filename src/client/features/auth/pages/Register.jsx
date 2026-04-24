@@ -1,5 +1,5 @@
 import "../styles/auth.css";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Home,
@@ -8,12 +8,13 @@ import {
     Calendar,
     User,
     Phone,
-    MapPin,
     Lock,
+    MapPin,   
   } from "lucide-react";
 import { registerUser } from "../api/authApi";
 import { useAuthSession } from "../context/useAuthSession";
 import { validateRegisterForm } from "../utils/registerValidation";
+import { getBirthdateInputBounds } from "../../../../shared/utils/birthdate.js";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -30,11 +31,12 @@ export default function Register() {
     email: "",
     password: "",
     confirmPassword: "",
-    address: "",
     gender: "",
     birthdate: "",
     mobile_no: "",
+    address: "",     
   });
+  const birthdateBounds = useMemo(() => getBirthdateInputBounds(), []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -72,10 +74,10 @@ export default function Register() {
       middleName: form.middleName.trim() || null,
       email: form.email.trim().toLowerCase(),
       password: form.password,
-      address: form.address.trim(),
       gender: form.gender,
       birthdate: form.birthdate,
       mobileNo: form.mobile_no.trim(),
+      address: form.address.trim(),   
     };
 
     try {
@@ -273,6 +275,8 @@ export default function Register() {
                         errors.birthdate ? "has-error" : ""
                       }`}
                       value={form.birthdate}
+                      min={birthdateBounds.min}
+                      max={birthdateBounds.max}
                       onChange={handleChange}
                       aria-invalid={Boolean(errors.birthdate)}
                     />
@@ -307,88 +311,94 @@ export default function Register() {
                   ) : null}
                 </div>
 
-                {/* Contact */}
-                <div className="form-group">
-                  <label className="form-label">Contact No.</label>
-                  <div className="input-wrap">
-                    <Phone className="input-icon" size={18} />
-                    <input
-                      type="text"
-                      name="mobile_no"
-                      className={`form-input has-icon ${
-                        errors.mobile_no ? "has-error" : ""
-                      }`}
-                      value={form.mobile_no}
-                      onChange={handleChange}
-                      aria-invalid={Boolean(errors.mobile_no)}
-                    />
+                {/* Contact and Address row – side by side */}
+                <div className="contact-address-row">
+                  {/* Contact No. */}
+                  <div className="form-group">
+                    <label className="form-label">Contact No.</label>
+                    <div className="input-wrap">
+                      <Phone className="input-icon" size={18} />
+                      <input
+                        type="text"
+                        name="mobile_no"
+                        className={`form-input has-icon ${
+                          errors.mobile_no ? "has-error" : ""
+                        }`}
+                        value={form.mobile_no}
+                        onChange={handleChange}
+                        aria-invalid={Boolean(errors.mobile_no)}
+                      />
+                    </div>
+                    {errors.mobile_no ? (
+                      <div className="field-error">{errors.mobile_no}</div>
+                    ) : null}
                   </div>
-                  {errors.mobile_no ? (
-                    <div className="field-error">{errors.mobile_no}</div>
-                  ) : null}
+
+                  {/* Address (new) */}
+                  <div className="form-group">
+                    <label className="form-label">Address</label>
+                    <div className="input-wrap">
+                      <MapPin className="input-icon" size={18} />
+                      <input
+                        type="text"
+                        name="address"
+                        className={`form-input has-icon ${
+                          errors.address ? "has-error" : ""
+                        }`}
+                        value={form.address}
+                        onChange={handleChange}
+                        aria-invalid={Boolean(errors.address)}
+                      />
+                    </div>
+                    {errors.address ? (
+                      <div className="field-error">{errors.address}</div>
+                    ) : null}
+                  </div>
                 </div>
 
-                {/* Address */}
-                <div className="form-group">
-                  <label className="form-label">Address</label>
-                  <div className="input-wrap">
-                    <MapPin className="input-icon" size={18} />
-                    <input
-                      type="text"
-                      name="address"
-                      className={`form-input has-icon ${
-                        errors.address ? "has-error" : ""
-                      }`}
-                      value={form.address}
-                      onChange={handleChange}
-                      aria-invalid={Boolean(errors.address)}
-                    />
+                {/* Password row – side by side */}
+                <div className="password-row">
+                  {/* Create Password */}
+                  <div className="form-group">
+                    <label className="form-label">Create Password</label>
+                    <div className="input-wrap">
+                      <Lock className="input-icon" size={18} />
+                      <input
+                        type="password"
+                        name="password"
+                        className={`form-input has-icon ${
+                          errors.password ? "has-error" : ""
+                        }`}
+                        value={form.password}
+                        onChange={handleChange}
+                        aria-invalid={Boolean(errors.password)}
+                      />
+                    </div>
+                    {errors.password ? (
+                      <div className="field-error">{errors.password}</div>
+                    ) : null}
                   </div>
-                  {errors.address ? (
-                    <div className="field-error">{errors.address}</div>
-                  ) : null}
-                </div>
 
-                {/* Password */}
-                <div className="form-group">
-                  <label className="form-label">Create Password</label>
-                  <div className="input-wrap">
-                    <Lock className="input-icon" size={18} />
-                    <input
-                      type="password"
-                      name="password"
-                      className={`form-input has-icon ${
-                        errors.password ? "has-error" : ""
-                      }`}
-                      value={form.password}
-                      onChange={handleChange}
-                      aria-invalid={Boolean(errors.password)}
-                    />
+                  {/* Confirm Password */}
+                  <div className="form-group">
+                    <label className="form-label">Confirm Password</label>
+                    <div className="input-wrap">
+                      <Lock className="input-icon" size={18} />
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        className={`form-input has-icon ${
+                          errors.confirmPassword ? "has-error" : ""
+                        }`}
+                        value={form.confirmPassword}
+                        onChange={handleChange}
+                        aria-invalid={Boolean(errors.confirmPassword)}
+                      />
+                    </div>
+                    {errors.confirmPassword ? (
+                      <div className="field-error">{errors.confirmPassword}</div>
+                    ) : null}
                   </div>
-                  {errors.password ? (
-                    <div className="field-error">{errors.password}</div>
-                  ) : null}
-                </div>
-
-                {/* Confirm Password */}
-                <div className="form-group">
-                  <label className="form-label">Confirm Password</label>
-                  <div className="input-wrap">
-                    <Lock className="input-icon" size={18} />
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      className={`form-input has-icon ${
-                        errors.confirmPassword ? "has-error" : ""
-                      }`}
-                      value={form.confirmPassword}
-                      onChange={handleChange}
-                      aria-invalid={Boolean(errors.confirmPassword)}
-                    />
-                  </div>
-                  {errors.confirmPassword ? (
-                    <div className="field-error">{errors.confirmPassword}</div>
-                  ) : null}
                 </div>
               </div>
 

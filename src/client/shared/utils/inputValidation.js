@@ -1,3 +1,9 @@
+import { validateBirthdateRange } from "../../../shared/utils/birthdate.js";
+import {
+  normalizeReferenceMapUrl,
+  validateReferenceMapUrl,
+} from "../../../shared/utils/referenceMap.js";
+
 const LETTERS_ONLY_REGEX = /^[A-Za-z]+$/;
 const EMAIL_REGEX =
   /^(?!.*\s)(?!.*\.\.)([A-Za-z0-9#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9#$%&'*+/=?^_`{|}~-]+)*)@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
@@ -24,7 +30,7 @@ export const validateNameField = (value, label, { required = true } = {}) => {
   }
 
   if (!LETTERS_ONLY_REGEX.test(normalizedValue)) {
-    return `${label} must contain letters only (A-Z, a-z).`;
+    return `${label} must contain only letters. No digits or special characters allowed`;
   }
 
   return "";
@@ -78,7 +84,7 @@ export const validateContactNumberField = (
   }
 
   if (!CONTACT_NUMBER_REGEX.test(normalizedValue)) {
-    return `${label} must be exactly 11 digits.`;
+    return `${label} must be exactly 11 digits. No special characters allowed`;
   }
 
   return "";
@@ -132,6 +138,35 @@ export const validateDistanceFromUniversityField = (
 
   return "";
 };
+
+export const validateBirthdateField = (
+  value,
+  label = "Birthdate",
+  options
+) => {
+  const normalizedValue = normalizeString(value);
+
+  if (!normalizedValue) {
+    return `${label} is required.`;
+  }
+
+  const birthdateValidation = validateBirthdateRange(normalizedValue, options);
+
+  if (!birthdateValidation.isValid) {
+    return birthdateValidation.error;
+  }
+
+  return "";
+};
+
+export const validateReferenceMapField = (
+  value,
+  label = "Reference Map",
+  options
+) => validateReferenceMapUrl(value, { label, ...(options || {}) });
+
+export const normalizeReferenceMapField = (value) =>
+  normalizeReferenceMapUrl(value);
 
 export const validationPatterns = {
   lettersOnly: LETTERS_ONLY_REGEX,

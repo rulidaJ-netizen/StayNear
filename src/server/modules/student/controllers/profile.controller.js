@@ -7,10 +7,15 @@ import {
   hasValidationErrors,
   sendValidationError,
   validateAddressField,
+  validateBirthdateField,
   validateContactNumberField,
   validateEmailField,
   validateFullNameField,
 } from "../../../shared/validation/inputValidation.js";
+import {
+  formatBirthdateForInput,
+  validateBirthdateRange,
+} from "../../../../shared/utils/birthdate.js";
 
 const serializeProfile = (record, idField) => ({
   [idField]: record[idField],
@@ -20,6 +25,7 @@ const serializeProfile = (record, idField) => ({
   gender: record.gender ?? "",
   age: record.age ?? "",
   mobile_no: record.mobile_no ?? "",
+  birthdate: formatBirthdateForInput(record.birthdate),
 });
 
 export const getStudentProfile = (req, res) => {
@@ -41,48 +47,81 @@ export const getStudentProfile = (req, res) => {
 
 export const updateStudentProfile = (req, res) => {
   const { id } = req.params;
-  const { full_name, email, address, gender, age, mobile_no } = req.body;
-  const { firstName, middleName, lastName } = splitFullName(full_name);
-
-  const validationErrors = {
-    full_name: validateFullNameField(full_name, { label: "Full name" }),
-    email: validateEmailField(email),
-    address: validateAddressField(address),
-    mobile_no: validateContactNumberField(mobile_no, "Contact number"),
-    gender: String(gender ?? "").trim() ? "" : "Gender is required.",
-  };
-
-  if (hasValidationErrors(validationErrors)) {
-    return sendValidationError(
-      res,
-      validationErrors,
-      "Please correct the invalid profile fields."
-    );
-  }
+  const hasBirthdate = Object.prototype.hasOwnProperty.call(req.body, "birthdate");
+  const { full_name, email, address, gender, mobile_no } = req.body;
 
   db.query(
-    `
-      UPDATE student
-      SET firstName = ?, middleName = ?, lastName = ?, email = ?, address = ?, gender = ?, age = ?, mobile_no = ?
-      WHERE student_id = ?
-    `,
-    [firstName, middleName, lastName, email, address, gender, age || 0, mobile_no, id],
-    (studentError) => {
-      if (studentError) {
-        console.error("Update student profile error:", studentError);
+    "SELECT student_id, birthdate FROM student WHERE student_id = ?",
+    [id],
+    (studentLookupError, studentRows) => {
+      if (studentLookupError) {
+        console.error("Fetch current student profile error:", studentLookupError);
         return res.status(500).json({ message: "Failed to update student profile" });
       }
 
+      if (studentRows.length === 0) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+
+      const nextBirthdate = hasBirthdate
+        ? String(req.body.birthdate || "").trim()
+        : formatBirthdateForInput(studentRows[0].birthdate);
+      const validationErrors = {
+        full_name: validateFullNameField(full_name, { label: "Full name" }),
+        email: validateEmailField(email),
+        address: validateAddressField(address),
+        mobile_no: validateContactNumberField(mobile_no, "Contact number"),
+        gender: String(gender ?? "").trim() ? "" : "Gender is required.",
+        birthdate: validateBirthdateField(nextBirthdate),
+      };
+
+      if (hasValidationErrors(validationErrors)) {
+        return sendValidationError(
+          res,
+          validationErrors,
+          "Please correct the invalid profile fields."
+        );
+      }
+
+      const { firstName, middleName, lastName } = splitFullName(full_name);
+      const birthdateValidation = validateBirthdateRange(nextBirthdate);
+
       db.query(
-        "UPDATE account SET email = ? WHERE student_id = ?",
-        [email, id],
-        (accountError) => {
-          if (accountError) {
-            console.error("Update student account error:", accountError);
-            return res.status(500).json({ message: "Failed to update account" });
+        `
+          UPDATE student
+          SET firstName = ?, middleName = ?, lastName = ?, email = ?, address = ?, gender = ?, age = ?, mobile_no = ?, birthdate = ?
+          WHERE student_id = ?
+        `,
+        [
+          firstName,
+          middleName,
+          lastName,
+          email,
+          address,
+          gender,
+          birthdateValidation.age,
+          mobile_no,
+          birthdateValidation.date,
+          id,
+        ],
+        (studentError) => {
+          if (studentError) {
+            console.error("Update student profile error:", studentError);
+            return res.status(500).json({ message: "Failed to update student profile" });
           }
 
-          return res.json({ message: "Student profile updated" });
+          db.query(
+            "UPDATE account SET email = ? WHERE student_id = ?",
+            [email, id],
+            (accountError) => {
+              if (accountError) {
+                console.error("Update student account error:", accountError);
+                return res.status(500).json({ message: "Failed to update account" });
+              }
+
+              return res.json({ message: "Student profile updated" });
+            }
+          );
         }
       );
     }

@@ -31,6 +31,10 @@ export default function PropertyCard({
           src={property.image}
           alt={property.title}
           className="property-image"
+          loading="lazy"
+          decoding="async"
+          width="700"
+          height="420"
         />
 
         <button

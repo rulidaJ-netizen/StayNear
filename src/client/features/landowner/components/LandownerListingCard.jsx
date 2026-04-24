@@ -42,7 +42,15 @@ export default function LandownerListingCard({
       tabIndex={onView ? 0 : undefined}
     >
       <div className={styles.imageWrap}>
-        <img src={imageSrc} alt={listing.name} className={styles.image} />
+        <img
+          src={imageSrc}
+          alt={listing.name}
+          className={styles.image}
+          loading="lazy"
+          decoding="async"
+          width="700"
+          height="420"
+        />
       </div>
 
       <div className={styles.content}>

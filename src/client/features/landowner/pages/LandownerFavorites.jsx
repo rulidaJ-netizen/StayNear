@@ -120,6 +120,10 @@ export default function LandownerFavorites() {
                     }
                     alt={listing.name}
                     className="landowner-favorite-image"
+                    loading="lazy"
+                    decoding="async"
+                    width="700"
+                    height="420"
                   />
 
                   <div className="landowner-favorite-badge">

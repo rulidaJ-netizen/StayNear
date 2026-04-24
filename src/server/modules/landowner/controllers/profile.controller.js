@@ -7,6 +7,7 @@ import {
 import {
   hasValidationErrors,
   sendValidationError,
+  validateBirthdateField,
   validateEmailField,
   validateFullNameField,
 } from "../../../shared/validation/inputValidation.js";
@@ -18,6 +19,10 @@ import {
   resolveUploadsPath,
   toUploadsUrl,
 } from "../../../shared/config/runtimePaths.js";
+import {
+  formatBirthdateForInput,
+  validateBirthdateRange,
+} from "../../../../shared/utils/birthdate.js";
 
 const storageDir = resolveStoragePath();
 const avatarsDir = resolveUploadsPath("avatars", "landowners");
@@ -67,6 +72,7 @@ const serializeProfile = (record, favoritesCount, avatarUrl) => ({
   gender: record.gender ?? "",
   age: record.age ?? "",
   mobile_no: record.mobile_no ?? "",
+  birthdate: formatBirthdateForInput(record.birthdate),
 });
 
 const fetchLandownerProfile = (landownerId, callback) => {
@@ -81,7 +87,8 @@ const fetchLandownerProfile = (landownerId, callback) => {
         address,
         gender,
         age,
-        mobile_no
+        mobile_no,
+        birthdate
       FROM landowner
       WHERE landowner_id = ?
     `,
@@ -157,113 +164,154 @@ export const updateLandownerProfile = (req, res) => {
   const email = String(req.body.email || "")
     .trim()
     .toLowerCase();
+  const hasBirthdate = Object.prototype.hasOwnProperty.call(req.body, "birthdate");
 
   if (!Number.isInteger(landownerId) || landownerId <= 0) {
     return res.status(400).json({ message: "landowner_id is required" });
   }
 
-  const validationErrors = {
+  const baseValidationErrors = {
     full_name: validateFullNameField(fullName, { label: "Full name" }),
     email: validateEmailField(email),
   };
 
-  if (hasValidationErrors(validationErrors)) {
-    return sendValidationError(
-      res,
-      validationErrors,
-      "Please correct the invalid profile fields."
-    );
-  }
-
-  const { firstName, middleName, lastName } = splitFullName(fullName);
-
   db.query(
-    "SELECT account_id FROM account WHERE email = ? AND (landowner_id IS NULL OR landowner_id <> ?)",
-    [email, landownerId],
-    (emailError, emailRows) => {
-      if (emailError) {
-        console.error("Check landowner email availability error:", emailError);
-        return res.status(500).json({ message: "Failed to validate email" });
+    "SELECT landowner_id, birthdate FROM landowner WHERE landowner_id = ?",
+    [landownerId],
+    (landownerLookupError, landownerRows) => {
+      if (landownerLookupError) {
+        console.error(
+          "Fetch current landowner profile error:",
+          landownerLookupError
+        );
+        return res
+          .status(500)
+          .json({ message: "Failed to update landowner profile" });
       }
 
-      if (emailRows.length > 0) {
-        return res.status(409).json({ message: "Email already exists" });
+      if (landownerRows.length === 0) {
+        return res.status(404).json({ message: "Landowner not found" });
       }
 
-      db.beginTransaction((transactionError) => {
-        if (transactionError) {
-          console.error(
-            "Start landowner update transaction error:",
-            transactionError
-          );
-          return res
-            .status(500)
-            .json({ message: "Failed to update landowner profile" });
-        }
+      const nextBirthdate = hasBirthdate
+        ? String(req.body.birthdate || "").trim()
+        : formatBirthdateForInput(landownerRows[0].birthdate);
+      const validationErrors = {
+        ...baseValidationErrors,
+        birthdate: validateBirthdateField(nextBirthdate),
+      };
 
-        db.query(
-          `
-            UPDATE landowner
-            SET firstName = ?, middleName = ?, lastName = ?, email = ?
-            WHERE landowner_id = ?
-          `,
-          [firstName, middleName, lastName, email, landownerId],
-          (landownerError) => {
-            if (landownerError) {
-              console.error("Update landowner profile error:", landownerError);
-              return db.rollback(() =>
-                res
-                  .status(500)
-                  .json({ message: "Failed to update landowner profile" })
+      if (hasValidationErrors(validationErrors)) {
+        return sendValidationError(
+          res,
+          validationErrors,
+          "Please correct the invalid profile fields."
+        );
+      }
+
+      const { firstName, middleName, lastName } = splitFullName(fullName);
+      const birthdateValidation = validateBirthdateRange(nextBirthdate);
+
+      db.query(
+        "SELECT account_id FROM account WHERE email = ? AND (landowner_id IS NULL OR landowner_id <> ?)",
+        [email, landownerId],
+        (emailError, emailRows) => {
+          if (emailError) {
+            console.error("Check landowner email availability error:", emailError);
+            return res.status(500).json({ message: "Failed to validate email" });
+          }
+
+          if (emailRows.length > 0) {
+            return res.status(409).json({ message: "Email already exists" });
+          }
+
+          db.beginTransaction((transactionError) => {
+            if (transactionError) {
+              console.error(
+                "Start landowner update transaction error:",
+                transactionError
               );
+              return res
+                .status(500)
+                .json({ message: "Failed to update landowner profile" });
             }
 
             db.query(
-              "UPDATE account SET email = ? WHERE landowner_id = ?",
-              [email, landownerId],
-              (accountError) => {
-                if (accountError) {
-                  console.error("Update landowner account error:", accountError);
+              `
+                UPDATE landowner
+                SET firstName = ?, middleName = ?, lastName = ?, email = ?, birthdate = ?, age = ?
+                WHERE landowner_id = ?
+              `,
+              [
+                firstName,
+                middleName,
+                lastName,
+                email,
+                birthdateValidation.date,
+                birthdateValidation.age,
+                landownerId,
+              ],
+              (landownerError) => {
+                if (landownerError) {
+                  console.error("Update landowner profile error:", landownerError);
                   return db.rollback(() =>
-                    res.status(500).json({ message: "Failed to update account" })
+                    res
+                      .status(500)
+                      .json({ message: "Failed to update landowner profile" })
                   );
                 }
 
-                db.commit((commitError) => {
-                  if (commitError) {
-                    console.error("Commit landowner profile update error:", commitError);
-                    return db.rollback(() =>
-                      res
-                        .status(500)
-                        .json({ message: "Failed to update landowner profile" })
-                    );
-                  }
+                db.query(
+                  "UPDATE account SET email = ? WHERE landowner_id = ?",
+                  [email, landownerId],
+                  (accountError) => {
+                    if (accountError) {
+                      console.error("Update landowner account error:", accountError);
+                      return db.rollback(() =>
+                        res.status(500).json({ message: "Failed to update account" })
+                      );
+                    }
 
-                  return fetchLandownerProfile(
-                    landownerId,
-                    (profileError, profile) => {
-                      if (profileError) {
+                    db.commit((commitError) => {
+                      if (commitError) {
                         console.error(
-                          "Fetch updated landowner profile error:",
-                          profileError
+                          "Commit landowner profile update error:",
+                          commitError
                         );
-                        return res.status(500).json({
-                          message: "Profile updated, but reload failed",
-                        });
+                        return db.rollback(() =>
+                          res
+                            .status(500)
+                            .json({ message: "Failed to update landowner profile" })
+                        );
                       }
 
-                      return res.json({
-                        message: "Landowner profile updated",
-                        profile,
-                      });
-                    }
-                  );
-                });
+                      return fetchLandownerProfile(
+                        landownerId,
+                        (profileError, profile) => {
+                          if (profileError) {
+                            console.error(
+                              "Fetch updated landowner profile error:",
+                              profileError
+                            );
+                            return res.status(500).json({
+                              message: "Profile updated, but reload failed",
+                            });
+                          }
+
+                          return res.json({
+                            message: "Landowner profile updated",
+                            profile,
+                          });
+                        }
+                      );
+                    });
+                  }
+                );
               }
             );
-          }
-        );
-      });
+          });
+        }
+      );
     }
   );
 };

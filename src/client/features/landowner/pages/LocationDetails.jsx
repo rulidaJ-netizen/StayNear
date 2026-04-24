@@ -8,6 +8,10 @@ import {
   saveLocationDetailsDraft,
 } from "../api/landownerApi";
 import { validateLocationDetailsForm } from "../utils/listingValidation";
+import {
+  normalizeReferenceMapField,
+  validateReferenceMapField,
+} from "../../../shared/utils/inputValidation";
 import "../styles/add-room.css";
 import "../styles/listing-draft.css";
 
@@ -95,6 +99,43 @@ export default function LocationDetails() {
     setErrorMessage("");
   };
 
+  const handleReferenceMapBlur = () => {
+    const rawReferenceMap = form.reference_map.trim();
+
+    if (!rawReferenceMap) {
+      setErrors((prev) => ({
+        ...prev,
+        reference_map: "",
+      }));
+      return;
+    }
+
+    const referenceMapError = validateReferenceMapField(
+      rawReferenceMap,
+      "Reference Map",
+      { required: false }
+    );
+
+    if (referenceMapError) {
+      setErrors((prev) => ({
+        ...prev,
+        reference_map: referenceMapError,
+      }));
+      return;
+    }
+
+    const normalizedReferenceMap = normalizeReferenceMapField(rawReferenceMap);
+
+    setForm((prev) => ({
+      ...prev,
+      reference_map: normalizedReferenceMap,
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      reference_map: "",
+    }));
+  };
+
   const handlePrevious = () => {
     navigate(`${routeBase}/set-pricing/${listingId}`);
   };
@@ -118,12 +159,20 @@ export default function LocationDetails() {
     try {
       setIsSaving(true);
       setErrorMessage("");
+      const normalizedReferenceMap = form.reference_map.trim()
+        ? normalizeReferenceMapField(form.reference_map)
+        : "";
 
       await saveLocationDetailsDraft(listingId, {
         full_address: form.full_address.trim(),
         distance_from_university: form.distance_from_university.trim(),
-        reference_map: form.reference_map.trim(),
+        reference_map: normalizedReferenceMap,
       });
+
+      setForm((prev) => ({
+        ...prev,
+        reference_map: normalizedReferenceMap,
+      }));
 
       navigate("/landowner/dashboard");
     } catch (error) {
@@ -196,15 +245,23 @@ export default function LocationDetails() {
                   ) : null}
                 </ListingFormField>
 
-                <ListingFormField label="Reference Map">
+                <ListingFormField
+                  label="Reference Map"
+                  error={errors.reference_map}
+                >
                   <input
-                    type="text"
-                    className="listing-input"
+                    type="url"
+                    inputMode="url"
+                    autoComplete="url"
+                    className={`listing-input ${
+                      errors.reference_map ? "has-error" : ""
+                    }`}
                     placeholder="Paste a Google Maps link"
                     value={form.reference_map}
                     onChange={(e) =>
                       handleChange("reference_map", e.target.value)
                     }
+                    onBlur={handleReferenceMapBlur}
                   />
                 </ListingFormField>
               </div>

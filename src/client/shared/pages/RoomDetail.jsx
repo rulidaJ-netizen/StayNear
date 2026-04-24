@@ -9,6 +9,7 @@ import {
 } from "../../features/student/api/studentApi";
 import { imageBaseUrl } from "../api/client";
 import { parseAmenities } from "../utils/amenities";
+import { normalizeReferenceMapField } from "../utils/inputValidation";
 import styles from "./RoomDetail.module.css";
 
 const FALLBACK_IMAGE =
@@ -121,6 +122,16 @@ export default function RoomDetail() {
   }, [id, user?.account_type]);
 
   const mapUrl = useMemo(() => {
+    const referenceMap = String(listing?.referenceMap || "").trim();
+
+    if (referenceMap) {
+      try {
+        return normalizeReferenceMapField(referenceMap);
+      } catch (error) {
+        console.error("Invalid saved reference map URL:", error);
+      }
+    }
+
     const query = listing?.location?.trim();
 
     if (!query) {
@@ -128,7 +139,7 @@ export default function RoomDetail() {
     }
 
     return `https://maps.google.com/?q=${encodeURIComponent(query)}`;
-  }, [listing?.location]);
+  }, [listing?.location, listing?.referenceMap]);
 
   const handleBack = () => {
     if (user?.account_type === "landowner") {
@@ -194,6 +205,11 @@ export default function RoomDetail() {
               src={listing.photos[0]?.src || FALLBACK_IMAGE}
               alt={listing.name}
               className={styles.heroImage}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              width="1200"
+              height="760"
             />
 
             <div className={styles.heroContent}>
@@ -303,6 +319,10 @@ export default function RoomDetail() {
                   src={photo.src}
                   alt={listing.name}
                   className={styles.photo}
+                  loading="lazy"
+                  decoding="async"
+                  width="800"
+                  height="600"
                 />
               ))}
             </div>

@@ -30,7 +30,7 @@ model BoardingHouse {
   description            String               @db.Text
   contactNumber          String?              @map("contact_number")
   distanceFromUniversity String               @map("distance_fron_university") @db.VarChar(255)
-  referenceMap           String?              @map("reference_map") @db.VarChar(255)
+  referenceMap           String?              @map("reference_map") @db.Text
   viewCount              Int                  @default(0) @map("view_count")
   landowner              Landowner            @relation(fields: [landownerId], references: [landownerId], onDelete: Cascade, onUpdate: Restrict, map: "fk_boardinghouse_landowner")
   photos                 BoardinghousePhoto[]

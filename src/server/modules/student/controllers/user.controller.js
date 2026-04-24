@@ -4,6 +4,7 @@ import { buildFullName, splitFullName } from "../../../shared/utils/profileUtils
 import {
   hasValidationErrors,
   sendValidationError,
+  validateBirthdateField,
   validateEmailField,
   validateFullNameField,
 } from "../../../shared/validation/inputValidation.js";
@@ -14,6 +15,10 @@ import {
   resolveUploadsPath,
   toUploadsUrl,
 } from "../../../shared/config/runtimePaths.js";
+import {
+  formatBirthdateForInput,
+  validateBirthdateRange,
+} from "../../../../shared/utils/birthdate.js";
 
 const storageDir = resolveStoragePath();
 const avatarsDir = resolveUploadsPath("avatars");
@@ -58,11 +63,24 @@ const serializeUserProfile = (studentRecord, favoritesCount, avatarUrl) => ({
   role: "Student",
   avatar_url: avatarUrl || "",
   favorites_count: Number(favoritesCount || 0),
+  birthdate: formatBirthdateForInput(studentRecord.birthdate),
+  age: Number(studentRecord.age || 0),
 });
 
 const fetchUserProfile = (studentId, callback) => {
   db.query(
-    "SELECT student_id, firstName, middleName, lastName, email FROM student WHERE student_id = ?",
+    `
+      SELECT
+        student_id,
+        firstName,
+        middleName,
+        lastName,
+        email,
+        birthdate,
+        age
+      FROM student
+      WHERE student_id = ?
+    `,
     [studentId],
     (studentError, studentRows) => {
       if (studentError) {
@@ -128,98 +146,131 @@ export const updateUserProfile = (req, res) => {
   const email = String(req.body.email || "")
     .trim()
     .toLowerCase();
+  const hasBirthdate = Object.prototype.hasOwnProperty.call(req.body, "birthdate");
 
   if (!Number.isInteger(studentId) || studentId <= 0) {
     return res.status(400).json({ message: "student_id is required" });
   }
 
-  const validationErrors = {
+  const baseValidationErrors = {
     full_name: validateFullNameField(fullName, { label: "Full name" }),
     email: validateEmailField(email),
   };
 
-  if (hasValidationErrors(validationErrors)) {
-    return sendValidationError(
-      res,
-      validationErrors,
-      "Please correct the invalid profile fields."
-    );
-  }
-
-  const { firstName, middleName, lastName } = splitFullName(fullName);
-
   db.query(
-    "SELECT account_id FROM account WHERE email = ? AND (student_id IS NULL OR student_id <> ?)",
-    [email, studentId],
-    (emailError, emailRows) => {
-      if (emailError) {
-        console.error("Check email availability error:", emailError);
-        return res.status(500).json({ message: "Failed to validate email" });
+    "SELECT student_id, birthdate FROM student WHERE student_id = ?",
+    [studentId],
+    (studentLookupError, studentRows) => {
+      if (studentLookupError) {
+        console.error("Fetch current student profile error:", studentLookupError);
+        return res.status(500).json({ message: "Failed to update user" });
       }
 
-      if (emailRows.length > 0) {
-        return res.status(409).json({ message: "Email already exists" });
+      if (studentRows.length === 0) {
+        return res.status(404).json({ message: "Student not found" });
       }
 
-      db.beginTransaction((transactionError) => {
-        if (transactionError) {
-          console.error("Start user update transaction error:", transactionError);
-          return res.status(500).json({ message: "Failed to update user" });
-        }
+      const nextBirthdate = hasBirthdate
+        ? String(req.body.birthdate || "").trim()
+        : formatBirthdateForInput(studentRows[0].birthdate);
+      const validationErrors = {
+        ...baseValidationErrors,
+        birthdate: validateBirthdateField(nextBirthdate),
+      };
 
-        db.query(
-          `
-            UPDATE student
-            SET firstName = ?, middleName = ?, lastName = ?, email = ?
-            WHERE student_id = ?
-          `,
-          [firstName, middleName, lastName, email, studentId],
-          (studentError) => {
-            if (studentError) {
-              console.error("Update user student record error:", studentError);
-              return db.rollback(() =>
-                res.status(500).json({ message: "Failed to update user" })
-              );
+      if (hasValidationErrors(validationErrors)) {
+        return sendValidationError(
+          res,
+          validationErrors,
+          "Please correct the invalid profile fields."
+        );
+      }
+
+      const { firstName, middleName, lastName } = splitFullName(fullName);
+      const birthdateValidation = validateBirthdateRange(nextBirthdate);
+
+      db.query(
+        "SELECT account_id FROM account WHERE email = ? AND (student_id IS NULL OR student_id <> ?)",
+        [email, studentId],
+        (emailError, emailRows) => {
+          if (emailError) {
+            console.error("Check email availability error:", emailError);
+            return res.status(500).json({ message: "Failed to validate email" });
+          }
+
+          if (emailRows.length > 0) {
+            return res.status(409).json({ message: "Email already exists" });
+          }
+
+          db.beginTransaction((transactionError) => {
+            if (transactionError) {
+              console.error("Start user update transaction error:", transactionError);
+              return res.status(500).json({ message: "Failed to update user" });
             }
 
             db.query(
-              "UPDATE account SET email = ? WHERE student_id = ?",
-              [email, studentId],
-              (accountError) => {
-                if (accountError) {
-                  console.error("Update user account record error:", accountError);
+              `
+                UPDATE student
+                SET firstName = ?, middleName = ?, lastName = ?, email = ?, birthdate = ?, age = ?
+                WHERE student_id = ?
+              `,
+              [
+                firstName,
+                middleName,
+                lastName,
+                email,
+                birthdateValidation.date,
+                birthdateValidation.age,
+                studentId,
+              ],
+              (studentError) => {
+                if (studentError) {
+                  console.error("Update user student record error:", studentError);
                   return db.rollback(() =>
                     res.status(500).json({ message: "Failed to update user" })
                   );
                 }
 
-                db.commit((commitError) => {
-                  if (commitError) {
-                    console.error("Commit user update error:", commitError);
-                    return db.rollback(() =>
-                      res.status(500).json({ message: "Failed to update user" })
-                    );
-                  }
-
-                  return fetchUserProfile(studentId, (profileError, profile) => {
-                    if (profileError) {
-                      console.error("Fetch updated user profile error:", profileError);
-                      return res
-                        .status(500)
-                        .json({ message: "Profile updated, but reload failed" });
+                db.query(
+                  "UPDATE account SET email = ? WHERE student_id = ?",
+                  [email, studentId],
+                  (accountError) => {
+                    if (accountError) {
+                      console.error("Update user account record error:", accountError);
+                      return db.rollback(() =>
+                        res.status(500).json({ message: "Failed to update user" })
+                      );
                     }
 
-                    return res.json({
-                      message: "Profile updated successfully",
-                      profile,
+                    db.commit((commitError) => {
+                      if (commitError) {
+                        console.error("Commit user update error:", commitError);
+                        return db.rollback(() =>
+                          res.status(500).json({ message: "Failed to update user" })
+                        );
+                      }
+
+                      return fetchUserProfile(studentId, (profileError, profile) => {
+                        if (profileError) {
+                          console.error("Fetch updated user profile error:", profileError);
+                          return res
+                            .status(500)
+                            .json({ message: "Profile updated, but reload failed" });
+                        }
+
+                        return res.json({
+                          message: "Profile updated successfully",
+                          profile,
+                        });
+                      });
                     });
-                  });
-                });
+                  }
+                );
               }
             );
-          }
-        );
-      });
+          });
+        }
+      );
     }
   );
 };

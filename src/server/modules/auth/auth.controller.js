@@ -1,14 +1,16 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../../shared/prismaClient.js";
+import { db } from "../../shared/db.js";
 import {
   hasValidationErrors,
   sendValidationError,
-  validateAddressField,
+  validateBirthdateField,
   validateContactNumberField,
   validateEmailField,
   validateNameField,
 } from "../../shared/validation/inputValidation.js";
+import { parseBirthdateInput } from "../../../shared/utils/birthdate.js";
 
 const AUTH_INCLUDE = {
   student: true,
@@ -28,6 +30,7 @@ const normalizeAccountType = (value) =>
 
 const normalizeEmail = (value) => String(value ?? "").trim().toLowerCase();
 const HASH_ROUNDS = 12;
+const dbPromise = db.promise();
 
 const serializeAuthUser = (account) => ({
   account_id: account.accountId ?? null,
@@ -55,26 +58,16 @@ const verifyPassword = async (password, storedPassword) => {
   return password === normalizedStoredPassword;
 };
 
-const buildProfileData = ({
-  firstName,
-  middleName,
-  lastName,
-  email,
-  address,
-  gender,
-  birthdate,
-  mobileNo,
-}) => ({
-  firstName: String(firstName).trim(),
-  middleName: hasValue(middleName) ? String(middleName).trim() : null,
-  lastName: String(lastName).trim(),
-  email,
-  address: String(address).trim(),
-  gender: String(gender).trim(),
-  age: 0,
-  mobileNo: String(mobileNo).trim(),
-  birthdate,
-});
+const queryAsync = async (sql, params = []) => {
+  const [rows] = await dbPromise.query(sql, params);
+  return rows;
+};
+
+const beginTransactionAsync = () => dbPromise.beginTransaction();
+
+const commitAsync = () => dbPromise.commit();
+
+const rollbackAsync = () => dbPromise.rollback();
 
 export const register = async (req, res) => {
   try {
@@ -101,11 +94,10 @@ export const register = async (req, res) => {
         required: false,
       }),
       email: validateEmailField(normalizedEmail),
-      address: validateAddressField(address),
       mobile_no: validateContactNumberField(mobileNo, "Contact number"),
       password: hasValue(password) ? "" : "Password is required.",
       gender: hasValue(gender) ? "" : "Gender is required.",
-      birthdate: hasValue(birthdate) ? "" : "Birthdate is required.",
+      birthdate: validateBirthdateField(birthdate),
     };
 
     if (hasValue(password) && String(password).length < 6) {
@@ -119,14 +111,6 @@ export const register = async (req, res) => {
       validationErrors.account_type = "Invalid account type.";
     }
 
-    if (hasValue(birthdate)) {
-      const parsedBirthdate = new Date(birthdate);
-
-      if (Number.isNaN(parsedBirthdate.getTime())) {
-        validationErrors.birthdate = "Invalid birthdate.";
-      }
-    }
-
     if (hasValidationErrors(validationErrors)) {
       return sendValidationError(
         res,
@@ -135,46 +119,63 @@ export const register = async (req, res) => {
       );
     }
 
-    const parsedBirthdate = new Date(birthdate);
+    const parsedBirthdate = parseBirthdateInput(birthdate);
+    const normalizedAddress = hasValue(address) ? String(address).trim() : "";
+    const existingAccountRows = await queryAsync(
+      "SELECT account_id FROM account WHERE email = ? LIMIT 1",
+      [normalizedEmail]
+    );
 
-    const existingAccount = await prisma.account.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (existingAccount) {
+    if (existingAccountRows.length > 0) {
       return res.status(409).json({ message: "Email already exists" });
     }
 
-    const profileData = buildProfileData({
-      firstName,
-      middleName,
-      lastName,
-      email: normalizedEmail,
-      address,
-      gender,
-      birthdate: parsedBirthdate,
-      mobileNo,
-    });
     const hashedPassword = await bcrypt.hash(password, HASH_ROUNDS);
+    const profileTable =
+      normalizedAccountType === "STUDENT" ? "student" : "landowner";
+    const profileIdColumn =
+      normalizedAccountType === "STUDENT" ? "student_id" : "landowner_id";
 
-    await prisma.account.create({
-      data: {
-        accountType: normalizedAccountType,
-        email: normalizedEmail,
-        password: hashedPassword,
-        ...(normalizedAccountType === "STUDENT"
-          ? {
-              student: {
-                create: profileData,
-              },
-            }
-          : {
-              landowner: {
-                create: profileData,
-              },
-            }),
-      },
-    });
+    await beginTransactionAsync();
+
+    try {
+      const profileResult = await queryAsync(
+        `
+          INSERT INTO ${profileTable}
+            (firstName, middleName, lastName, email, address, gender, mobile_no, birthdate)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          String(firstName).trim(),
+          hasValue(middleName) ? String(middleName).trim() : null,
+          String(lastName).trim(),
+          normalizedEmail,
+          normalizedAddress,
+          String(gender).trim(),
+          String(mobileNo).trim(),
+          parsedBirthdate?.iso,
+        ]
+      );
+
+      await queryAsync(
+        `
+          INSERT INTO account (account_type, email, password, ${profileIdColumn})
+          VALUES (?, ?, ?, ?)
+        `,
+        [
+          normalizedAccountType,
+          normalizedEmail,
+          hashedPassword,
+          profileResult.insertId,
+        ]
+      );
+
+      await commitAsync();
+    } catch (transactionError) {
+      await rollbackAsync();
+      console.error("Auth register transaction error:", transactionError);
+      return res.status(500).json({ message: "Registration failed" });
+    }
 
     return res.status(201).json({
       message: "Registration successful. Please log in with your new account.",

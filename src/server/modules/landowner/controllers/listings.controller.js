@@ -14,6 +14,8 @@ import {
   validateContactNumberField,
   validateDistanceFromUniversityField,
   validateLocationDetailsField,
+  normalizeReferenceMapField,
+  validateReferenceMapField,
 } from "../../../shared/validation/inputValidation.js";
 import {
   validateListingLocationPayload,
@@ -213,6 +215,7 @@ export const createListing = (req, res) => {
 
   const propertyName = String(property_name ?? name ?? "").trim();
   const fullAddress = String(full_address ?? location ?? "").trim();
+  const legacyLocationDetails = String(location_city ?? "").trim();
 
   if (!landowner_id) {
     return res.status(400).json({ message: "landowner_id is required" });
@@ -228,6 +231,7 @@ export const createListing = (req, res) => {
       fullAddress,
       distanceFromUniversity: distance_from_university,
       locationDetails: location_city,
+      referenceMap: reference_map,
     }),
   };
 
@@ -238,6 +242,11 @@ export const createListing = (req, res) => {
       "Please correct the invalid listing fields."
     );
   }
+
+  const rawReferenceMap = String(reference_map ?? "").trim();
+  const normalizedReferenceMap = rawReferenceMap
+    ? normalizeReferenceMapField(rawReferenceMap)
+    : "";
 
   const amenitiesText = normalizeAmenities(amenities);
   const availableRooms = Number(available_rooms || 0);
@@ -287,7 +296,7 @@ export const createListing = (req, res) => {
         description,
         contact_number,
         distance_from_university || "",
-        reference_map || location_city || "",
+        normalizedReferenceMap || legacyLocationDetails,
         0,
       ],
       (boardingError, boardingResult) => {
@@ -411,6 +420,8 @@ export const updateListing = (req, res) => {
   const shouldUpdateAmenities = hasOwn(req.body, "amenities");
   const shouldUpdateAvailability =
     hasOwn(req.body, "availability_status") || hasOwn(req.body, "available_rooms");
+  const shouldUpdateReferenceMap =
+    hasOwn(req.body, "reference_map") || hasOwn(req.body, "location_city");
 
   const normalizedAvailabilityStatus = shouldUpdateAvailability
     ? toDbAvailabilityStatus(availability_status) ||
@@ -469,6 +480,14 @@ export const updateListing = (req, res) => {
     );
   }
 
+  if (hasOwn(req.body, "reference_map")) {
+    validationErrors.reference_map = validateReferenceMapField(
+      reference_map,
+      "Reference Map",
+      { required: false }
+    );
+  }
+
   if (hasValidationErrors(validationErrors)) {
     return sendValidationError(
       res,
@@ -482,6 +501,15 @@ export const updateListing = (req, res) => {
       message: pricingValidationError,
     });
   }
+
+  const normalizedReferenceMap = hasOwn(req.body, "reference_map")
+    ? String(reference_map ?? "").trim()
+      ? normalizeReferenceMapField(reference_map)
+      : ""
+    : null;
+  const normalizedLegacyLocationDetails = hasOwn(req.body, "location_city")
+    ? String(location_city ?? "").trim()
+    : null;
 
   db.beginTransaction((transactionError) => {
     if (transactionError) {
@@ -513,8 +541,8 @@ export const updateListing = (req, res) => {
         hasOwn(req.body, "distance_from_university")
           ? distance_from_university
           : null,
-        hasOwn(req.body, "reference_map") || hasOwn(req.body, "location_city")
-          ? reference_map || location_city || ""
+        shouldUpdateReferenceMap
+          ? normalizedReferenceMap ?? normalizedLegacyLocationDetails ?? ""
           : null,
         id,
       ],

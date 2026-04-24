@@ -1,5 +1,5 @@
 import {
-  validateAddressField,
+  validateBirthdateField,
   validateContactNumberField,
   validateEmailField,
   validateNameField,
@@ -16,7 +16,6 @@ export const validateRegisterForm = (form) => {
     required: false,
   });
   const emailError = validateEmailField(form.email);
-  const addressError = validateAddressField(form.address);
   const contactNumberError = validateContactNumberField(form.mobile_no);
 
   if (firstNameError) {
@@ -33,10 +32,6 @@ export const validateRegisterForm = (form) => {
 
   if (emailError) {
     errors.email = emailError;
-  }
-
-  if (addressError) {
-    errors.address = addressError;
   }
 
   if (contactNumberError) {
@@ -59,8 +54,10 @@ export const validateRegisterForm = (form) => {
     errors.gender = "Gender is required.";
   }
 
-  if (!normalizeString(form.birthdate)) {
-    errors.birthdate = "Birthday is required.";
+  const birthdateError = validateBirthdateField(form.birthdate, "Birthday");
+
+  if (birthdateError) {
+    errors.birthdate = birthdateError;
   }
 
   return errors;

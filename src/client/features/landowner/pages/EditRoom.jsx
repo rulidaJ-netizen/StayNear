@@ -237,7 +237,11 @@ export default function EditRoom() {
         </div>
 
         <form className="add-room-card" onSubmit={handleNext}>
-          <h2 className="card-title">Edit Basic Information</h2>
+          <h1 className="card-title">Edit Basic Information</h1>
+          <div className="card-subtitle">
+            Update your property name, description, and contact number before
+            continuing to the next section.
+          </div>
 
           {errors.general && (
             <div className="form-error-banner">

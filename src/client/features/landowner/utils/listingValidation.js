@@ -4,6 +4,7 @@ import {
   validateContactNumberField,
   validateDistanceFromUniversityField,
   validateLocationDetailsField,
+  validateReferenceMapField,
 } from "../../../shared/utils/inputValidation";
 
 const normalizeString = (value) => String(value ?? "").trim();
@@ -112,6 +113,11 @@ export const validateLocationDetailsForm = (form) => {
     "Location details",
     { required: false }
   );
+  const referenceMapError = validateReferenceMapField(
+    form.reference_map,
+    "Reference Map",
+    { required: false }
+  );
 
   if (addressError) {
     errors.full_address = addressError;
@@ -123,6 +129,10 @@ export const validateLocationDetailsForm = (form) => {
 
   if (locationDetailsError) {
     errors.location_city = locationDetailsError;
+  }
+
+  if (referenceMapError) {
+    errors.reference_map = referenceMapError;
   }
 
   return errors;

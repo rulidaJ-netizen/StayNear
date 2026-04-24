@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
-  ChevronRight,
   LogOut,
   Mail,
-  Shield,
   User,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -19,10 +17,15 @@ import {
 } from "../api/landownerApi";
 import { validateLandownerProfileForm } from "../utils/profileValidation";
 import "../styles/landowner-profile.css";
+import {
+  calculateAgeFromBirthdate,
+  getBirthdateInputBounds,
+} from "../../../../shared/utils/birthdate.js";
 
 const createProfileForm = (profile = {}) => ({
   full_name: profile.full_name || "",
   email: profile.email || "",
+  birthdate: profile.birthdate || "",
 });
 
 export default function LandownerProfile() {
@@ -42,6 +45,7 @@ export default function LandownerProfile() {
   const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
   const [toast, setToast] = useState({ type: "", message: "" });
+  const birthdateBounds = useMemo(() => getBirthdateInputBounds(), []);
 
   useEffect(() => {
     if (!toast.message) {
@@ -172,6 +176,7 @@ export default function LandownerProfile() {
         landowner_id: landownerId,
         full_name: form.full_name.trim(),
         email: form.email.trim().toLowerCase(),
+        birthdate: form.birthdate,
       });
 
       let nextProfile = updateResponse.profile;
@@ -235,6 +240,16 @@ export default function LandownerProfile() {
 
   const displayName = form.full_name || profile?.full_name || "Landowner";
   const displayEmail = form.email || profile?.email || sessionUser?.email || "";
+  const calculatedAge = useMemo(() => {
+    const derivedAge = calculateAgeFromBirthdate(form.birthdate);
+
+    if (derivedAge !== null) {
+      return derivedAge;
+    }
+
+    const storedAge = Number(profile?.age || 0);
+    return storedAge > 0 ? storedAge : "";
+  }, [form.birthdate, profile?.age]);
 
   return (
     <div className="landowner-profile-page">
@@ -349,6 +364,40 @@ export default function LandownerProfile() {
                     {errors.email ? (
                       <div className="landowner-profile-error">{errors.email}</div>
                     ) : null}
+                  </div>
+
+                  <div className="landowner-profile-field">
+                    <label htmlFor="landowner-birthdate">Birthdate</label>
+                    <input
+                      id="landowner-birthdate"
+                      type="date"
+                      className={`landowner-profile-input ${
+                        errors.birthdate ? "has-error" : ""
+                      }`}
+                      value={form.birthdate}
+                      min={birthdateBounds.min}
+                      max={birthdateBounds.max}
+                      onChange={(event) =>
+                        handleChange("birthdate", event.target.value)
+                      }
+                      readOnly={!isEditing}
+                    />
+                    {errors.birthdate ? (
+                      <div className="landowner-profile-error">
+                        {errors.birthdate}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="landowner-profile-field">
+                    <label htmlFor="landowner-age">Age</label>
+                    <input
+                      id="landowner-age"
+                      type="text"
+                      className="landowner-profile-input"
+                      value={calculatedAge}
+                      readOnly
+                    />
                   </div>
 
                   {isEditing ? (

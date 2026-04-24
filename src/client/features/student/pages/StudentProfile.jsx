@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
-  ChevronRight,
   LogOut,
   Mail,
-  Shield,
   User,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -20,10 +18,15 @@ import {
 } from "../api/studentApi";
 import { validateProfileForm } from "../utils/profileValidation";
 import "../styles/student-profile.css";
+import {
+  calculateAgeFromBirthdate,
+  getBirthdateInputBounds,
+} from "../../../../shared/utils/birthdate.js";
 
 const createProfileForm = (profile = {}) => ({
   full_name: profile.full_name || "",
   email: profile.email || "",
+  birthdate: profile.birthdate || "",
 });
 
 export default function StudentProfile() {
@@ -44,6 +47,7 @@ export default function StudentProfile() {
   const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
   const [toast, setToast] = useState({ type: "", message: "" });
+  const birthdateBounds = useMemo(() => getBirthdateInputBounds(), []);
 
   useEffect(() => {
     if (!toast.message) {
@@ -169,6 +173,7 @@ export default function StudentProfile() {
         student_id: studentId,
         full_name: form.full_name.trim(),
         email: form.email.trim().toLowerCase(),
+        birthdate: form.birthdate,
       });
 
       let nextProfile = updateResponse.profile;
@@ -232,6 +237,16 @@ export default function StudentProfile() {
 
   const displayName = form.full_name || profile?.full_name || "Student";
   const displayEmail = form.email || profile?.email || sessionUser?.email || "";
+  const calculatedAge = useMemo(() => {
+    const derivedAge = calculateAgeFromBirthdate(form.birthdate);
+
+    if (derivedAge !== null) {
+      return derivedAge;
+    }
+
+    const storedAge = Number(profile?.age || 0);
+    return storedAge > 0 ? storedAge : "";
+  }, [form.birthdate, profile?.age]);
 
   return (
     <div className="student-profile-page">
@@ -346,6 +361,40 @@ export default function StudentProfile() {
                     {errors.email ? (
                       <div className="student-profile-error">{errors.email}</div>
                     ) : null}
+                  </div>
+
+                  <div className="student-profile-field">
+                    <label htmlFor="student-birthdate">Birthdate</label>
+                    <input
+                      id="student-birthdate"
+                      type="date"
+                      className={`student-profile-input ${
+                        errors.birthdate ? "has-error" : ""
+                      }`}
+                      value={form.birthdate}
+                      min={birthdateBounds.min}
+                      max={birthdateBounds.max}
+                      onChange={(event) =>
+                        handleChange("birthdate", event.target.value)
+                      }
+                      readOnly={!isEditing}
+                    />
+                    {errors.birthdate ? (
+                      <div className="student-profile-error">
+                        {errors.birthdate}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="student-profile-field">
+                    <label htmlFor="student-age">Age</label>
+                    <input
+                      id="student-age"
+                      type="text"
+                      className="student-profile-input"
+                      value={calculatedAge}
+                      readOnly
+                    />
                   </div>
 
                   {isEditing ? (

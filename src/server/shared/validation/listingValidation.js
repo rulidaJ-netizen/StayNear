@@ -3,6 +3,7 @@ import {
   validateContactNumberField,
   validateDistanceFromUniversityField,
   validateLocationDetailsField,
+  validateReferenceMapField,
 } from "./inputValidation.js";
 
 const normalizeString = (value) => String(value ?? "").trim();
@@ -38,6 +39,7 @@ export const validateListingLocationPayload = ({
   fullAddress,
   distanceFromUniversity,
   locationDetails,
+  referenceMap,
   requireLocationDetails = false,
 }) => {
   const errors = {};
@@ -51,6 +53,9 @@ export const validateListingLocationPayload = ({
     "Location details",
     { required: requireLocationDetails }
   );
+  const referenceMapError = validateReferenceMapField(referenceMap, "Reference Map", {
+    required: false,
+  });
 
   if (addressError) {
     errors.full_address = addressError;
@@ -62,6 +67,10 @@ export const validateListingLocationPayload = ({
 
   if (locationDetailsError) {
     errors.location_city = locationDetailsError;
+  }
+
+  if (referenceMapError) {
+    errors.reference_map = referenceMapError;
   }
 
   return errors;
