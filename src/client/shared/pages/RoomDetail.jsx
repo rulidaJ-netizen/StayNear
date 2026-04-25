@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MapPin, Navigation, Phone } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getStoredUser } from "../../features/auth/api/authApi";
 import { getLandownerListing } from "../../features/landowner/api/landownerApi";
 import {
@@ -63,6 +63,7 @@ const normalizeListing = (data) => {
 };
 
 export default function RoomDetail() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
   const user = getStoredUser();
@@ -141,9 +142,20 @@ export default function RoomDetail() {
     return `https://maps.google.com/?q=${encodeURIComponent(query)}`;
   }, [listing?.location, listing?.referenceMap]);
 
+  const isFromFavorites =
+    user?.account_type === "student" && location.state?.from === "favorites";
+  const backLabel = isFromFavorites
+    ? "Back to Favorites"
+    : "Back to dashboard";
+
   const handleBack = () => {
     if (user?.account_type === "landowner") {
       navigate("/landowner/dashboard");
+      return;
+    }
+
+    if (isFromFavorites) {
+      navigate("/student/favorites");
       return;
     }
 
@@ -173,7 +185,7 @@ export default function RoomDetail() {
               onClick={handleBack}
             >
               <ArrowLeft size={18} />
-              <span>Back</span>
+              <span>{isFromFavorites ? "Back to Favorites" : "Back"}</span>
             </button>
 
             <p className={styles.errorText}>
@@ -196,7 +208,7 @@ export default function RoomDetail() {
           onClick={handleBack}
         >
           <ArrowLeft size={18} />
-          <span>Back to dashboard</span>
+          <span>{backLabel}</span>
         </button>
 
         <section className={styles.card}>

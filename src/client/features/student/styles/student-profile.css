@@ -204,6 +204,8 @@
 
 .student-profile-card {
   padding: 26px 24px 24px;
+  width: min(100%, 720px);
+  align-self: center;
 }
 
 .student-profile-card-header {
@@ -398,6 +400,8 @@
   display: flex;
   justify-content: center;
   margin-top: 10px;
+  width: min(100%, 720px);
+  align-self: center;
 }
 
 .student-profile-logout-btn {

@@ -4,7 +4,8 @@ import {
   validateReferenceMapUrl,
 } from "../../../shared/utils/referenceMap.js";
 
-const LETTERS_ONLY_REGEX = /^[A-Za-z]+$/;
+const LETTERS_ONLY_REGEX = /^\p{L}+$/u;
+const LETTERS_AND_SPACES_REGEX = /^\p{L}+(?:\s+\p{L}+)*$/u;
 const EMAIL_REGEX =
   /^(?!.*\s)(?!.*\.\.)([A-Za-z0-9#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9#$%&'*+/=?^_`{|}~-]+)*)@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}$/;
 const CONTACT_NUMBER_REGEX = /^\d{11}$/;
@@ -26,8 +27,8 @@ export const validateNameField = (value, label, { required = true } = {}) => {
     return required ? `${label} is required.` : "";
   }
 
-  if (!LETTERS_ONLY_REGEX.test(normalizedValue)) {
-    return `${label} must contain letters only (A-Z, a-z).`;
+  if (!LETTERS_AND_SPACES_REGEX.test(normalizedValue)) {
+    return `${label} must contain letters and spaces only.`;
   }
 
   return "";
@@ -50,7 +51,7 @@ export const validateFullNameField = (
   const invalidPart = parts.find((part) => !LETTERS_ONLY_REGEX.test(part));
 
   if (invalidPart) {
-    return `${label} must use letters only for each name part.`;
+    return `${label} must use letters and spaces only for each name part.`;
   }
 
   return "";
@@ -121,12 +122,13 @@ export const validateLocationDetailsField = (
 
 export const validateDistanceFromUniversityField = (
   value,
-  label = "Distance from university"
+  label = "Distance from university",
+  { required = true } = {}
 ) => {
   const normalizedValue = normalizeString(value);
 
   if (!normalizedValue) {
-    return `${label} is required.`;
+    return required ? `${label} is required.` : "";
   }
 
   if (!DISTANCE_FROM_UNIVERSITY_REGEX.test(normalizedValue)) {

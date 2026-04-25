@@ -46,7 +46,9 @@ export const validateListingLocationPayload = ({
 
   const addressError = validateAddressField(fullAddress, "Full address");
   const distanceError = validateDistanceFromUniversityField(
-    distanceFromUniversity
+    distanceFromUniversity,
+    "Distance from university",
+    { required: false }
   );
   const locationDetailsError = validateLocationDetailsField(
     locationDetails,

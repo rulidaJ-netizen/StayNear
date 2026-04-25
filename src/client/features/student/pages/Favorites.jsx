@@ -56,7 +56,9 @@ export default function Favorites() {
     recordStudentRoomView(boardinghouseId).catch((error) => {
       console.error("Failed to record room view:", error);
     });
-    navigate(`/room/${boardinghouseId}`);
+    navigate(`/room/${boardinghouseId}`, {
+      state: { from: "favorites" },
+    });
   };
 
   return (

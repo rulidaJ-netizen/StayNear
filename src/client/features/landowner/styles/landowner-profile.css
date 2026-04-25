@@ -113,6 +113,8 @@
 
 .landowner-profile-card {
   padding: 26px 24px 24px;
+  width: min(100%, 720px);
+  align-self: center;
 }
 
 .landowner-profile-card-header {
@@ -307,6 +309,8 @@
   display: flex;
   justify-content: center;
   margin-top: 10px;
+  width: min(100%, 720px);
+  align-self: center;
 }
 
 .landowner-profile-logout-btn {

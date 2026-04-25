@@ -226,13 +226,13 @@ export default function LocationDetails() {
                   ) : null}
                 </ListingFormField>
 
-                <ListingFormField label="Distance from University" required>
+                <ListingFormField label="Distance from University">
                   <input
                     type="text"
                     className={`listing-input ${
                       errors.distance_from_university ? "has-error" : ""
                     }`}
-                    placeholder="Enter distance information"
+                    placeholder="Enter in kilometers"
                     value={form.distance_from_university}
                     onChange={(e) =>
                       handleChange("distance_from_university", e.target.value)

@@ -106,7 +106,9 @@ export const validateLocationDetailsForm = (form) => {
   const errors = {};
   const addressError = validateAddressField(form.full_address, "Full address");
   const distanceError = validateDistanceFromUniversityField(
-    form.distance_from_university
+    form.distance_from_university,
+    "Distance from university",
+    { required: false }
   );
   const locationDetailsError = validateLocationDetailsField(
     form.location_city,

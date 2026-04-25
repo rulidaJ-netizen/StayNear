@@ -469,7 +469,11 @@ export const updateListing = (req, res) => {
 
   if (hasOwn(req.body, "distance_from_university")) {
     validationErrors.distance_from_university =
-      validateDistanceFromUniversityField(distance_from_university);
+      validateDistanceFromUniversityField(
+        distance_from_university,
+        "Distance from university",
+        { required: false }
+      );
   }
 
   if (hasOwn(req.body, "location_city")) {
