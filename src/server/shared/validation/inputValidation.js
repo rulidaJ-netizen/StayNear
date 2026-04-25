@@ -95,6 +95,10 @@ export const validateAddressField = (value, label = "Address") => {
     return `${label} is required.`;
   }
 
+  if (normalizedValue.length > 255) {
+    return `${label} must be 255 characters or fewer.`;
+  }
+
   if (!ADDRESS_REGEX.test(normalizedValue)) {
     return `${label} may contain letters, numbers, spaces, and commas only.`;
   }
