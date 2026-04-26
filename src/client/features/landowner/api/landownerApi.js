@@ -1,35 +1,4 @@
-import axios from "axios";
 import api from "../../../shared/api/client";
-
-const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
-const isVercelHostname = (value) => {
-  const hostname = String(value || "").toLowerCase();
-  return hostname === "vercel.app" || hostname.endsWith(".vercel.app");
-};
-
-const resolveDirectPhotoUploadUrl = (boardingHouseId) => {
-  const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
-
-  if (!configuredApiUrl) {
-    return "";
-  }
-
-  try {
-    const url = new URL(configuredApiUrl);
-    const apiPath =
-      url.pathname && url.pathname !== "/"
-        ? trimTrailingSlashes(url.pathname)
-        : "/api";
-
-    url.pathname = `${apiPath}/landowner/boarding-houses/${boardingHouseId}/photos`;
-    url.search = "";
-    url.hash = "";
-
-    return url.toString();
-  } catch {
-    return "";
-  }
-};
 
 export const getLandownerDashboard = async (landownerId) => {
   const res = await api.get(
@@ -117,34 +86,6 @@ export const updateLandownerListing = async (boardingHouseId, payload) => {
       ? { headers: { "Content-Type": "multipart/form-data" } }
       : undefined
   );
-
-  return res.data;
-};
-
-export const uploadBoardingHousePhotos = async (
-  boardingHouseId,
-  formData,
-  options = {}
-) => {
-  const uploadPath = `/landowner/boarding-houses/${boardingHouseId}/photos`;
-  const directUploadUrl = resolveDirectPhotoUploadUrl(boardingHouseId);
-  const shouldUseSameOriginUpload =
-    typeof window !== "undefined" &&
-    isVercelHostname(window.location.hostname);
-
-  if (shouldUseSameOriginUpload || !directUploadUrl) {
-    const res = await api.post(uploadPath, formData, {
-      onUploadProgress: options.onUploadProgress,
-    });
-
-    return res.data;
-  }
-
-  const token = localStorage.getItem("token");
-  const res = await axios.post(directUploadUrl, formData, {
-    onUploadProgress: options.onUploadProgress,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
 
   return res.data;
 };

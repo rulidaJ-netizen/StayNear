@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Upload } from "lucide-react";
 import LandownerNavbar from "../components/LandownerNavbar";
 import { imageBaseUrl } from "../../../shared/api/client";
-import {
-  getLandownerListing,
-  uploadBoardingHousePhotos,
-} from "../api/landownerApi";
+import { getLandownerListing } from "../api/landownerApi";
 import "../styles/add-room.css";
 
 const MAX_PHOTO_SIZE_BYTES = 10 * 1024 * 1024;
+const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
 
 export default function UploadPhotos() {
   const navigate = useNavigate();
@@ -26,6 +25,7 @@ export default function UploadPhotos() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
+  const fileInputRefs = useRef([]);
 
   useEffect(() => {
     const loadExistingPhotos = async () => {
@@ -97,7 +97,7 @@ export default function UploadPhotos() {
     navigate("/landowner/add-room");
   };
 
-  const handleNext = async () => {
+  const handlePhotoUpload = async () => {
     try {
       if (!listingId.trim()) {
         setErrorMessage(
@@ -123,7 +123,39 @@ export default function UploadPhotos() {
           formData.append("photos", file);
         });
 
-        const response = await uploadBoardingHousePhotos(listingId, formData, {
+        const configuredApiUrl = String(
+          import.meta.env.VITE_API_URL || "/api"
+        ).trim();
+        const token = localStorage.getItem("token");
+        const uploadUrl = configuredApiUrl.startsWith("http")
+          ? `${trimTrailingSlashes(
+              configuredApiUrl
+            )}/api/landowner/boarding-houses/${listingId}/photos`
+          : `${trimTrailingSlashes(
+              configuredApiUrl || "/api"
+            )}/landowner/boarding-houses/${listingId}/photos`;
+
+        if (!token) {
+          setErrorMessage("Please sign in again before uploading photos.");
+          return;
+        }
+
+        if (
+          typeof window !== "undefined" &&
+          window.location.hostname.endsWith(".vercel.app") &&
+          !configuredApiUrl.startsWith("http")
+        ) {
+          setErrorMessage(
+            "Photo uploads require VITE_API_URL to point to the Railway backend in Vercel."
+          );
+          return;
+        }
+
+        const response = await axios.post(uploadUrl, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
           onUploadProgress: (progressEvent) => {
             if (!progressEvent.total) {
               return;
@@ -159,6 +191,11 @@ export default function UploadPhotos() {
             (currentCount) => currentCount + uploadedUrls.length
           );
           setPhotos([null, null, null, null]);
+          fileInputRefs.current.forEach((input) => {
+            if (input) {
+              input.value = "";
+            }
+          });
         }
       }
 
@@ -217,6 +254,9 @@ export default function UploadPhotos() {
                       type="file"
                       accept="image/*"
                       className="hidden-file-input"
+                      ref={(element) => {
+                        fileInputRefs.current[index] = element;
+                      }}
                       onChange={(e) =>
                         handlePhotoSelect(index, e.target.files?.[0] || null)
                       }
@@ -262,7 +302,7 @@ export default function UploadPhotos() {
               <button
                 type="button"
                 className="primary-btn"
-                onClick={handleNext}
+                onClick={handlePhotoUpload}
                 disabled={isUploading}
               >
                 {isUploading ? "Please wait..." : "Next"}
