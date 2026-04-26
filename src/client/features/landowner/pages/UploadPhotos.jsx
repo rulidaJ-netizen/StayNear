@@ -7,7 +7,7 @@ import { imageBaseUrl } from "../../../shared/api/client";
 import { getLandownerListing } from "../api/landownerApi";
 import "../styles/add-room.css";
 
-const MAX_PHOTO_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_PHOTO_SIZE_BYTES = 20 * 1024 * 1024;
 const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
 
 export default function UploadPhotos() {
@@ -26,6 +26,7 @@ export default function UploadPhotos() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const fileInputRefs = useRef([]);
+  const photosSectionRef = useRef(null);
 
   useEffect(() => {
     const loadExistingPhotos = async () => {
@@ -71,7 +72,7 @@ export default function UploadPhotos() {
 
   const handlePhotoSelect = (index, file) => {
     if (file && file.size > MAX_PHOTO_SIZE_BYTES) {
-      setErrorMessage("Each photo must be 10 MB or smaller.");
+      setErrorMessage("Each photo must be 20 MB or smaller.");
       return;
     }
 
@@ -127,10 +128,11 @@ export default function UploadPhotos() {
           import.meta.env.VITE_API_URL || "/api"
         ).trim();
         const token = localStorage.getItem("token");
+        const uploadOrigin = configuredApiUrl.startsWith("http")
+          ? trimTrailingSlashes(configuredApiUrl)
+          : "";
         const uploadUrl = configuredApiUrl.startsWith("http")
-          ? `${trimTrailingSlashes(
-              configuredApiUrl
-            )}/api/landowner/boarding-houses/${listingId}/photos`
+          ? `${uploadOrigin}/api/landowner/boarding-houses/${listingId}/photos`
           : `${trimTrailingSlashes(
               configuredApiUrl || "/api"
             )}/landowner/boarding-houses/${listingId}/photos`;
@@ -154,7 +156,6 @@ export default function UploadPhotos() {
         const response = await axios.post(uploadUrl, formData, {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
           },
           onUploadProgress: (progressEvent) => {
             if (!progressEvent.total) {
@@ -169,8 +170,10 @@ export default function UploadPhotos() {
             );
           },
         });
-        const uploadedUrls = (response?.photo_urls || []).map(
-          (photoUrl) => `${imageBaseUrl}${photoUrl}`
+        const uploadedUrls = (response?.data?.photo_urls || []).map((photoUrl) =>
+          uploadOrigin
+            ? `${uploadOrigin}${photoUrl}`
+            : `${imageBaseUrl}${photoUrl}`
         );
 
         if (uploadedUrls.length > 0) {
@@ -195,6 +198,10 @@ export default function UploadPhotos() {
             if (input) {
               input.value = "";
             }
+          });
+          photosSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
           });
         }
       }
@@ -244,7 +251,7 @@ export default function UploadPhotos() {
               <div className="form-error-banner">{errorMessage}</div>
             ) : null}
 
-            <div className="form-group">
+            <div ref={photosSectionRef} className="form-group">
               <label className="form-label">Property Photos *</label>
 
               <div className="upload-photo-grid">
@@ -266,6 +273,7 @@ export default function UploadPhotos() {
                       <img
                         src={previews[index]}
                         alt={`Preview ${index + 1}`}
+                        loading="eager"
                         className="upload-photo-preview"
                       />
                     ) : (
