@@ -70,7 +70,6 @@ const serializeProfile = (record, favoritesCount, avatarUrl) => ({
   favorites_count: Number(favoritesCount || 0),
   address: record.address ?? "",
   gender: record.gender ?? "",
-  age: record.age ?? "",
   mobile_no: record.mobile_no ?? "",
   birthdate: formatBirthdateForInput(record.birthdate),
 });
@@ -86,7 +85,6 @@ const fetchLandownerProfile = (landownerId, callback) => {
         email,
         address,
         gender,
-        age,
         mobile_no,
         birthdate
       FROM landowner
@@ -239,7 +237,7 @@ export const updateLandownerProfile = (req, res) => {
             db.query(
               `
                 UPDATE landowner
-                SET firstName = ?, middleName = ?, lastName = ?, email = ?, birthdate = ?, age = ?
+                SET firstName = ?, middleName = ?, lastName = ?, email = ?, birthdate = ?
                 WHERE landowner_id = ?
               `,
               [
@@ -248,7 +246,6 @@ export const updateLandownerProfile = (req, res) => {
                 lastName,
                 email,
                 birthdateValidation.date,
-                birthdateValidation.age,
                 landownerId,
               ],
               (landownerError) => {
