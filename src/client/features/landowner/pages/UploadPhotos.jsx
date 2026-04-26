@@ -9,6 +9,8 @@ import {
 } from "../api/landownerApi";
 import "../styles/add-room.css";
 
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+
 export default function UploadPhotos() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,6 +24,7 @@ export default function UploadPhotos() {
   const [previews, setPreviews] = useState([null, null, null, null]);
   const [existingPhotosCount, setExistingPhotosCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -67,11 +70,19 @@ export default function UploadPhotos() {
   );
 
   const handlePhotoSelect = (index, file) => {
+    if (file && file.size > MAX_PHOTO_SIZE_BYTES) {
+      setErrorMessage("Each photo must be 5 MB or smaller.");
+      return;
+    }
+
     const updatedPhotos = [...photos];
     const updatedPreviews = [...previews];
 
+    setErrorMessage("");
     updatedPhotos[index] = file || null;
-    updatedPreviews[index] = file ? URL.createObjectURL(file) : updatedPreviews[index];
+    updatedPreviews[index] = file
+      ? URL.createObjectURL(file)
+      : updatedPreviews[index];
 
     setPhotos(updatedPhotos);
     setPreviews(updatedPreviews);
@@ -98,11 +109,13 @@ export default function UploadPhotos() {
       const validFiles = photos.filter(Boolean);
 
       if (validFiles.length < 1 && existingPhotosCount < 1) {
-        alert("Please upload at least 1 photo.");
+        setErrorMessage("Please upload at least 1 photo.");
         return;
       }
 
+      setErrorMessage("");
       setIsUploading(true);
+      setUploadProgress(0);
 
       if (validFiles.length > 0) {
         const formData = new FormData();
@@ -110,21 +123,58 @@ export default function UploadPhotos() {
           formData.append("photos", file);
         });
 
-        await uploadBoardingHousePhotos(listingId, formData);
+        const response = await uploadBoardingHousePhotos(listingId, formData, {
+          onUploadProgress: (progressEvent) => {
+            if (!progressEvent.total) {
+              return;
+            }
+
+            setUploadProgress(
+              Math.min(
+                100,
+                Math.round((progressEvent.loaded / progressEvent.total) * 100)
+              )
+            );
+          },
+        });
+        const uploadedUrls = (response?.photo_urls || []).map(
+          (photoUrl) => `${imageBaseUrl}${photoUrl}`
+        );
+
+        if (uploadedUrls.length > 0) {
+          const nextPreviews = [...previews];
+          let uploadedIndex = 0;
+
+          photos.forEach((file, index) => {
+            if (!file || !uploadedUrls[uploadedIndex]) {
+              return;
+            }
+
+            nextPreviews[index] = uploadedUrls[uploadedIndex];
+            uploadedIndex += 1;
+          });
+
+          setPreviews(nextPreviews);
+          setExistingPhotosCount((currentCount) => currentCount + uploadedUrls.length);
+          setPhotos([null, null, null, null]);
+        }
       }
 
       navigate(`${routeBase}/set-pricing/${listingId}`);
     } catch (error) {
       console.error("Upload photos error:", error);
       const nextError =
+        (error.code === "ERR_NETWORK"
+          ? "Upload failed before the server responded. Check the Railway API URL and allowed CORS origins."
+          : "") ||
         error.response?.data?.error ||
         error.response?.data?.message ||
-        "Something went wrong";
+        "Something went wrong while uploading photos.";
 
       setErrorMessage(nextError);
-      alert(nextError);
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -188,6 +238,9 @@ export default function UploadPhotos() {
                 Upload at least 1 high-quality photo of the room
               </div>
               <div className="upload-count">Selected: {selectedCount} / 4</div>
+              {isUploading ? (
+                <div className="upload-count">Upload progress: {uploadProgress}%</div>
+              ) : null}
             </div>
 
             <div className="card-footer">

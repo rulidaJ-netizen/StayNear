@@ -278,19 +278,17 @@
   font-size: 16px;
 }
 
-/* ---------- NEW: Password row (side by side) ---------- */
 .password-row {
-  grid-column: 1 / -1;               /* span the full width of the form grid */
+  grid-column: 1 / -1;               
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;                         /* match form-grid gap */
+  gap: 12px;                         
 }
 
 .password-row .form-group {
-  margin-bottom: 0;                  /* keep spacing consistent */
+  margin-bottom: 0;                  
 }
 
-/* On very small screens, stack them */
 @media (max-width: 480px) {
   .password-row {
     grid-template-columns: 1fr;
@@ -333,19 +331,17 @@
   color: #18794e;
 }
 
-/* ---------- NEW: Contact & Address row (side by side) ---------- */
 .contact-address-row {
-  grid-column: 1 / -1;               /* span full width */
+  grid-column: 1 / -1;               
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;                         /* match form-grid gap */
+  gap: 12px;                         
 }
 
 .contact-address-row .form-group {
   margin-bottom: 0;
 }
 
-/* Stack on very small screens */
 @media (max-width: 480px) {
   .contact-address-row {
     grid-template-columns: 1fr;

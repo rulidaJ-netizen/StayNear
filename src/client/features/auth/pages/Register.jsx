@@ -167,7 +167,6 @@ export default function Register() {
                 Fill in your details to get started
               </div>
 
-              {/* ERROR BOX - uses CSS class from auth.css */}
               {error && <div className="error-box">{error}</div>}
 
               <div className="role-toggle">
@@ -189,7 +188,6 @@ export default function Register() {
               </div>
 
               <div className="form-grid">
-                {/* First Name */}
                 <div className="form-group">
                   <label className="form-label">First Name</label>
                   <input
@@ -205,7 +203,6 @@ export default function Register() {
                   ) : null}
                 </div>
 
-                {/* Last Name */}
                 <div className="form-group">
                   <label className="form-label">Last Name</label>
                   <input
@@ -221,7 +218,6 @@ export default function Register() {
                   ) : null}
                 </div>
 
-                {/* Middle Name */}
                 <div className="form-group">
                   <label className="form-label">Middle Name</label>
                   <div className="input-wrap">
@@ -242,7 +238,6 @@ export default function Register() {
                   ) : null}
                 </div>
 
-                {/* Email */}
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
                   <div className="input-wrap">
@@ -263,7 +258,6 @@ export default function Register() {
                   ) : null}
                 </div>
 
-                {/* Birthday */}
                 <div className="form-group">
                   <label className="form-label">Birthday</label>
                   <div className="input-wrap">
@@ -286,7 +280,6 @@ export default function Register() {
                   ) : null}
                 </div>
 
-                {/* Gender */}
                 <div className="form-group">
                   <label className="form-label">Gender</label>
                   <div className="input-wrap">
@@ -311,9 +304,7 @@ export default function Register() {
                   ) : null}
                 </div>
 
-                {/* Contact and Address row – side by side */}
                 <div className="contact-address-row">
-                  {/* Contact No. */}
                   <div className="form-group">
                     <label className="form-label">Contact No.</label>
                     <div className="input-wrap">
@@ -334,7 +325,6 @@ export default function Register() {
                     ) : null}
                   </div>
 
-                  {/* Address (new) */}
                   <div className="form-group">
                     <label className="form-label">Address</label>
                     <div className="input-wrap">
@@ -356,9 +346,7 @@ export default function Register() {
                   </div>
                 </div>
 
-                {/* Password row – side by side */}
                 <div className="password-row">
-                  {/* Create Password */}
                   <div className="form-group">
                     <label className="form-label">Create Password</label>
                     <div className="input-wrap">
@@ -379,7 +367,6 @@ export default function Register() {
                     ) : null}
                   </div>
 
-                  {/* Confirm Password */}
                   <div className="form-group">
                     <label className="form-label">Confirm Password</label>
                     <div className="input-wrap">

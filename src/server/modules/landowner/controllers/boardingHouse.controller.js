@@ -85,10 +85,15 @@ export const uploadBoardingHousePhotos = (req, res) => {
     return res.status(400).json({ message: "Please upload at least one photo" });
   }
 
-  const values = files.map((file) => [
-    id,
-    toUploadsUrl("boardinghouses", file.filename),
-    new Date(),
+  const uploadedPhotos = files.map((file) => ({
+    boardinghouse_id: Number(id),
+    photo_url: toUploadsUrl("boardinghouses", file.filename),
+    created_at: new Date(),
+  }));
+  const values = uploadedPhotos.map((photo) => [
+    photo.boardinghouse_id,
+    photo.photo_url,
+    photo.created_at,
   ]);
 
   db.query(
@@ -108,6 +113,9 @@ export const uploadBoardingHousePhotos = (req, res) => {
 
       return res.status(201).json({
         message: "Photos uploaded successfully",
+        uploaded_count: uploadedPhotos.length,
+        photo_urls: uploadedPhotos.map((photo) => photo.photo_url),
+        photos: uploadedPhotos,
       });
     }
   );

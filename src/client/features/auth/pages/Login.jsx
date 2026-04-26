@@ -68,7 +68,6 @@ export default function Login() {
         role,
       });
 
-      // ✅ Store token for authenticated requests
       if (data.token) {
         localStorage.setItem("token", data.token);
       }

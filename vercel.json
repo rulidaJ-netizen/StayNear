@@ -5,6 +5,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/landowner/boarding-houses/:id/photos",
+      "destination": "https://staynear-api-production.up.railway.app/api/landowner/boarding-houses/:id/photos"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/proxy?path=:path*"
     },

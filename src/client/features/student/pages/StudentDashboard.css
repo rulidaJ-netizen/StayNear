@@ -116,7 +116,6 @@
   margin: 0 0 16px;
 }
 
-/* ========== SEARCH ROW (only search box now) ========== */
 .search-row.compact {
   max-width: 1200px;
   margin: 0 auto;
@@ -143,7 +142,6 @@
   background: transparent;
 }
 
-/* ========== AMENITY FILTER SECTION (aligned with search) ========== */
 .amenities-filter-section.compact {
   max-width: 1200px;
   margin: 8px auto 24px auto;
@@ -194,7 +192,6 @@
   color: white;
 }
 
-/* ========== RESULTS & CONTENT ========== */
 .student-content.compact {
   padding: 14px 22px 16px;
 }
@@ -355,7 +352,6 @@
   font-size: 12px;
 }
 
-/* ========== RESPONSIVE ========== */
 @media (max-width: 1200px) {
   .property-grid.compact {
     grid-template-columns: repeat(2, minmax(0, 1fr));

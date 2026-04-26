@@ -115,4 +115,5 @@ export default async function handler(req, res) {
     console.error("Vercel API proxy error:", error);
     res.status(502).json({ message: "Proxy request failed" });
   }
+
 }

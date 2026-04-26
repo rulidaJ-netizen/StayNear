@@ -1,4 +1,31 @@
+import axios from "axios";
 import api from "../../../shared/api/client";
+
+const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
+
+const resolveDirectPhotoUploadUrl = (boardingHouseId) => {
+  const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
+
+  if (!configuredApiUrl) {
+    return "";
+  }
+
+  try {
+    const url = new URL(configuredApiUrl);
+    const apiPath =
+      url.pathname && url.pathname !== "/"
+        ? trimTrailingSlashes(url.pathname)
+        : "/api";
+
+    url.pathname = `${apiPath}/landowner/boarding-houses/${boardingHouseId}/photos`;
+    url.search = "";
+    url.hash = "";
+
+    return url.toString();
+  } catch {
+    return "";
+  }
+};
 
 export const getLandownerDashboard = async (landownerId) => {
   const res = await api.get(
@@ -92,15 +119,19 @@ export const updateLandownerListing = async (boardingHouseId, payload) => {
 
 export const uploadBoardingHousePhotos = async (
   boardingHouseId,
-  formData
+  formData,
+  options = {}
 ) => {
-  const res = await api.post(
-    `/landowner/boarding-houses/${boardingHouseId}/photos`,
-    formData,
-    {
-      headers: { "Content-Type": "multipart/form-data" },
-    }
-  );
+  const directUploadUrl = resolveDirectPhotoUploadUrl(boardingHouseId);
+  const token = localStorage.getItem("token");
+  const config = {
+    onUploadProgress: options.onUploadProgress,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  };
+  const request = directUploadUrl
+    ? axios.post(directUploadUrl, formData, config)
+    : api.post(`/landowner/boarding-houses/${boardingHouseId}/photos`, formData, config);
+  const res = await request;
 
   return res.data;
 };
