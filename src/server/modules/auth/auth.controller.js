@@ -12,9 +12,13 @@ import {
 } from "../../shared/validation/inputValidation.js";
 import { parseBirthdateInput } from "../../../shared/utils/birthdate.js";
 
-const AUTH_INCLUDE = {
-  student: true,
-  landowner: true,
+const AUTH_LOGIN_SELECT = {
+  accountId: true,
+  accountType: true,
+  email: true,
+  password: true,
+  studentId: true,
+  landownerId: true,
 };
 
 const hasValue = (value) => {
@@ -201,7 +205,7 @@ export const login = async (req, res) => {
 
     const account = await prisma.account.findUnique({
       where: { email: normalizedEmail },
-      include: AUTH_INCLUDE,
+      select: AUTH_LOGIN_SELECT,
     });
 
     if (!account) {
@@ -226,12 +230,12 @@ export const login = async (req, res) => {
     let tokenPayload = {};
     if (account.accountType === "STUDENT") {
       tokenPayload = {
-        student_id: account.student?.studentId,
+        student_id: account.studentId,
         account_type: "student",
       };
     } else if (account.accountType === "LANDOWNER") {
       tokenPayload = {
-        landowner_id: account.landowner?.landownerId,
+        landowner_id: account.landownerId,
         account_type: "landowner",
       };
     }
