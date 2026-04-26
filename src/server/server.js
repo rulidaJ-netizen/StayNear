@@ -32,17 +32,26 @@ const cacheableUploadExtensions = new Set([
   ".svg",
   ".webp",
 ]);
+const normalizeOrigin = (origin) =>
+  String(origin || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .toLowerCase();
 const defaultDevOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:4173",
   "http://127.0.0.1:4173",
+].map(normalizeOrigin);
+const defaultProductionOrigins = [
+  "https://stay-near-ten.vercel.app",
+].map(normalizeOrigin);
+const defaultProductionOriginPatterns = [
+  /^https:\/\/stay-near-ten(?:-[a-z0-9-]+)?\.vercel\.app$/,
 ];
-const defaultProductionOrigins = ["https://stay-near-ten.vercel.app"];
-const defaultProductionOriginPatterns = [/^https:\/\/.*\.vercel\.app$/];
 const configuredOrigins = String(process.env.CORS_ORIGIN || "")
   .split(",")
-  .map((origin) => origin.trim())
+  .map(normalizeOrigin)
   .filter(Boolean);
 const allowedOrigins = Array.from(
   new Set(
@@ -50,40 +59,33 @@ const allowedOrigins = Array.from(
   )
 );
 const allowedOriginPatterns = defaultProductionOriginPatterns;
-const corsOptions =
-  allowedOrigins.length > 0 || allowedOriginPatterns.length > 0
-    ? {
-        origin(origin, callback) {
-          if (
-            !origin ||
-            allowedOrigins.includes(origin) ||
-            allowedOriginPatterns.some((pattern) => pattern.test(origin))
-          ) {
-            callback(null, true);
-            return;
-          }
+const isAllowedOrigin = (origin) => {
+  const normalizedOrigin = normalizeOrigin(origin);
 
-          callback(new Error("Origin not allowed by CORS"));
-        },
-        methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-        credentials: true,
-        optionsSuccessStatus: 204,
-      }
-    : {
-        origin(origin, callback) {
-          if (!origin) {
-            callback(null, true);
-            return;
-          }
+  if (!normalizedOrigin) {
+    return true;
+  }
 
-          callback(new Error("Origin not allowed by CORS"));
-        },
-        methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-        credentials: true,
-        optionsSuccessStatus: 204,
-      };
+  return (
+    allowedOrigins.includes(normalizedOrigin) ||
+    allowedOriginPatterns.some((pattern) => pattern.test(normalizedOrigin))
+  );
+};
+const corsOptions = {
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    console.warn(`[cors] Rejected origin: ${origin || "unknown"}`);
+    callback(new Error("Origin not allowed by CORS"));
+  },
+  methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  credentials: true,
+  optionsSuccessStatus: 204,
+  maxAge: 86400,
+};
 
 const pingMysqlConnection = () =>
   new Promise((resolve, reject) => {

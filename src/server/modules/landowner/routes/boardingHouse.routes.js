@@ -39,7 +39,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024,
     files: 5,
   },
 });
@@ -51,7 +51,7 @@ const getUploadErrorMessage = (error) => {
 
   switch (error.code) {
     case "LIMIT_FILE_SIZE":
-      return "Each photo must be 5 MB or smaller.";
+      return "Each photo must be 10 MB or smaller.";
     case "LIMIT_FILE_COUNT":
       return "You can upload up to 5 photos at a time.";
     case "LIMIT_UNEXPECTED_FILE":

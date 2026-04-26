@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import LandownerNavbar from "../components/LandownerNavbar";
 import AmenityChip from "../components/AmenityChip";
@@ -33,6 +33,8 @@ export default function SetPricingAvailability() {
   const routeBase = location.pathname.includes("/landowner/edit-room")
     ? "/landowner/edit-room"
     : "/landowner/add-room";
+  const titleRef = useRef(null);
+  const showUploadArrivalMessage = Boolean(location.state?.photoUploadCompleted);
 
   const [listing, setListing] = useState(null);
   const [form, setForm] = useState(createPricingAvailabilityForm());
@@ -94,6 +96,17 @@ export default function SetPricingAvailability() {
 
     sessionStorage.setItem(storageKey, JSON.stringify(form));
   }, [form, isLoading, listingId, storageKey]);
+
+  useEffect(() => {
+    if (!showUploadArrivalMessage) {
+      return;
+    }
+
+    titleRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [showUploadArrivalMessage]);
 
   const errors = useMemo(
     () => validatePricingAvailabilityForm(form),
@@ -181,7 +194,15 @@ export default function SetPricingAvailability() {
           <ListingStepProgress activeStep={3} />
 
           <section className="listing-draft-card">
-            <h1 className="listing-draft-title">Pricing & Availability</h1>
+            <h1 ref={titleRef} className="listing-draft-title">
+              Pricing & Availability
+            </h1>
+            {showUploadArrivalMessage ? (
+              <p className="listing-status-text">
+                Photos uploaded successfully. Continue with pricing and
+                availability.
+              </p>
+            ) : null}
             <p className="listing-draft-subtitle">
               Set the monthly rent, room inventory, and amenities students can
               expect from your listing.

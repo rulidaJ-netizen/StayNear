@@ -2,6 +2,10 @@ import axios from "axios";
 import api from "../../../shared/api/client";
 
 const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
+const isVercelHostname = (value) => {
+  const hostname = String(value || "").toLowerCase();
+  return hostname === "vercel.app" || hostname.endsWith(".vercel.app");
+};
 
 const resolveDirectPhotoUploadUrl = (boardingHouseId) => {
   const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
@@ -122,16 +126,25 @@ export const uploadBoardingHousePhotos = async (
   formData,
   options = {}
 ) => {
+  const uploadPath = `/landowner/boarding-houses/${boardingHouseId}/photos`;
   const directUploadUrl = resolveDirectPhotoUploadUrl(boardingHouseId);
+  const shouldUseSameOriginUpload =
+    typeof window !== "undefined" &&
+    isVercelHostname(window.location.hostname);
+
+  if (shouldUseSameOriginUpload || !directUploadUrl) {
+    const res = await api.post(uploadPath, formData, {
+      onUploadProgress: options.onUploadProgress,
+    });
+
+    return res.data;
+  }
+
   const token = localStorage.getItem("token");
-  const config = {
+  const res = await axios.post(directUploadUrl, formData, {
     onUploadProgress: options.onUploadProgress,
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  };
-  const request = directUploadUrl
-    ? axios.post(directUploadUrl, formData, config)
-    : api.post(`/landowner/boarding-houses/${boardingHouseId}/photos`, formData, config);
-  const res = await request;
+  });
 
   return res.data;
 };

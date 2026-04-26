@@ -9,7 +9,7 @@ import {
 } from "../api/landownerApi";
 import "../styles/add-room.css";
 
-const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_PHOTO_SIZE_BYTES = 10 * 1024 * 1024;
 
 export default function UploadPhotos() {
   const navigate = useNavigate();
@@ -71,7 +71,7 @@ export default function UploadPhotos() {
 
   const handlePhotoSelect = (index, file) => {
     if (file && file.size > MAX_PHOTO_SIZE_BYTES) {
-      setErrorMessage("Each photo must be 5 MB or smaller.");
+      setErrorMessage("Each photo must be 10 MB or smaller.");
       return;
     }
 
@@ -155,12 +155,16 @@ export default function UploadPhotos() {
           });
 
           setPreviews(nextPreviews);
-          setExistingPhotosCount((currentCount) => currentCount + uploadedUrls.length);
+          setExistingPhotosCount(
+            (currentCount) => currentCount + uploadedUrls.length
+          );
           setPhotos([null, null, null, null]);
         }
       }
 
-      navigate(`${routeBase}/set-pricing/${listingId}`);
+      navigate(`${routeBase}/set-pricing/${listingId}`, {
+        state: { photoUploadCompleted: true },
+      });
     } catch (error) {
       console.error("Upload photos error:", error);
       const nextError =
@@ -239,7 +243,9 @@ export default function UploadPhotos() {
               </div>
               <div className="upload-count">Selected: {selectedCount} / 4</div>
               {isUploading ? (
-                <div className="upload-count">Upload progress: {uploadProgress}%</div>
+                <div className="upload-count">
+                  Upload progress: {uploadProgress}%
+                </div>
               ) : null}
             </div>
 
