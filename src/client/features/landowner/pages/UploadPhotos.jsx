@@ -107,7 +107,9 @@ export default function UploadPhotos() {
         return;
       }
 
-      const validFiles = photos.filter(Boolean);
+      const validFiles = photos
+        .map((file, index) => ({ file, index }))
+        .filter(({ file }) => Boolean(file));
 
       if (validFiles.length < 1 && existingPhotosCount < 1) {
         setErrorMessage("Please upload at least 1 photo.");
@@ -119,11 +121,6 @@ export default function UploadPhotos() {
       setUploadProgress(0);
 
       if (validFiles.length > 0) {
-        const formData = new FormData();
-        validFiles.forEach((file) => {
-          formData.append("photos", file);
-        });
-
         const configuredApiUrl = String(
           import.meta.env.VITE_API_URL || "/api"
         ).trim();
@@ -153,56 +150,77 @@ export default function UploadPhotos() {
           return;
         }
 
-        const response = await axios.post(uploadUrl, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          onUploadProgress: (progressEvent) => {
-            if (!progressEvent.total) {
-              return;
-            }
+        const totalFiles = validFiles.length;
+        let completedFiles = 0;
 
-            setUploadProgress(
-              Math.min(
-                100,
-                Math.round((progressEvent.loaded / progressEvent.total) * 100)
-              )
-            );
-          },
-        });
-        const uploadedUrls = (response?.data?.photo_urls || []).map((photoUrl) =>
-          uploadOrigin
-            ? `${uploadOrigin}${photoUrl}`
-            : `${imageBaseUrl}${photoUrl}`
-        );
+        for (const { file, index } of validFiles) {
+          const formData = new FormData();
+          formData.append("photos", file);
 
-        if (uploadedUrls.length > 0) {
-          const nextPreviews = [...previews];
-          let uploadedIndex = 0;
+          const response = await axios.post(uploadUrl, formData, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            onUploadProgress: (progressEvent) => {
+              if (!progressEvent.total) {
+                setUploadProgress(
+                  Math.round((completedFiles / totalFiles) * 100)
+                );
+                return;
+              }
 
-          photos.forEach((file, index) => {
-            if (!file || !uploadedUrls[uploadedIndex]) {
-              return;
-            }
+              const currentFileProgress =
+                progressEvent.loaded / progressEvent.total;
 
-            nextPreviews[index] = uploadedUrls[uploadedIndex];
-            uploadedIndex += 1;
+              setUploadProgress(
+                Math.min(
+                  100,
+                  Math.round(
+                    ((completedFiles + currentFileProgress) / totalFiles) * 100
+                  )
+                )
+              );
+            },
           });
 
-          setPreviews(nextPreviews);
+          const uploadedUrls = (response?.data?.photo_urls || []).map(
+            (photoUrl) =>
+              uploadOrigin
+                ? `${uploadOrigin}${photoUrl}`
+                : `${imageBaseUrl}${photoUrl}`
+          );
+
+          if (uploadedUrls.length < 1) {
+            throw new Error("Upload succeeded but no photo URL was returned.");
+          }
+
+          setPreviews((currentPreviews) => {
+            const nextPreviews = [...currentPreviews];
+            nextPreviews[index] = uploadedUrls[0];
+            return nextPreviews;
+          });
           setExistingPhotosCount(
             (currentCount) => currentCount + uploadedUrls.length
           );
-          setPhotos([null, null, null, null]);
-          fileInputRefs.current.forEach((input) => {
-            if (input) {
-              input.value = "";
-            }
+          setPhotos((currentPhotos) => {
+            const nextPhotos = [...currentPhotos];
+            nextPhotos[index] = null;
+            return nextPhotos;
           });
+
+          if (fileInputRefs.current[index]) {
+            fileInputRefs.current[index].value = "";
+          }
+
           photosSectionRef.current?.scrollIntoView({
             behavior: "smooth",
             block: "center",
           });
+
+          completedFiles += 1;
+          setUploadProgress(
+            Math.min(100, Math.round((completedFiles / totalFiles) * 100))
+          );
         }
       }
 

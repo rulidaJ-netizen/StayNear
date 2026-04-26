@@ -16,6 +16,7 @@ import {
   toUploadsUrl,
 } from "../../../shared/config/runtimePaths.js";
 import {
+  calculateAgeFromBirthdate,
   formatBirthdateForInput,
   validateBirthdateRange,
 } from "../../../../shared/utils/birthdate.js";
@@ -64,7 +65,7 @@ const serializeUserProfile = (studentRecord, favoritesCount, avatarUrl) => ({
   avatar_url: avatarUrl || "",
   favorites_count: Number(favoritesCount || 0),
   birthdate: formatBirthdateForInput(studentRecord.birthdate),
-  age: Number(studentRecord.age || 0),
+  age: Number(calculateAgeFromBirthdate(studentRecord.birthdate) || 0),
 });
 
 const fetchUserProfile = (studentId, callback) => {
@@ -76,8 +77,7 @@ const fetchUserProfile = (studentId, callback) => {
         middleName,
         lastName,
         email,
-        birthdate,
-        age
+        birthdate
       FROM student
       WHERE student_id = ?
     `,
@@ -211,7 +211,7 @@ export const updateUserProfile = (req, res) => {
             db.query(
               `
                 UPDATE student
-                SET firstName = ?, middleName = ?, lastName = ?, email = ?, birthdate = ?, age = ?
+                SET firstName = ?, middleName = ?, lastName = ?, email = ?, birthdate = ?
                 WHERE student_id = ?
               `,
               [
@@ -220,7 +220,6 @@ export const updateUserProfile = (req, res) => {
                 lastName,
                 email,
                 birthdateValidation.date,
-                birthdateValidation.age,
                 studentId,
               ],
               (studentError) => {
