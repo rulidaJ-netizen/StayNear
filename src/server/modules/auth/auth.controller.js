@@ -58,7 +58,6 @@ const verifyPassword = async (password, storedPassword) => {
     return bcrypt.compare(password, normalizedStoredPassword);
   }
 
-  // Backward compatibility for existing plain-text rows.
   return password === normalizedStoredPassword;
 };
 

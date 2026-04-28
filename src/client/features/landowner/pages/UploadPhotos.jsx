@@ -19,6 +19,7 @@ export default function UploadPhotos() {
     ? "/landowner/edit-room"
     : "/landowner/add-room";
 
+  const [existingPhotos, setExistingPhotos] = useState([null, null, null, null]);
   const [photos, setPhotos] = useState([null, null, null, null]);
   const [previews, setPreviews] = useState([null, null, null, null]);
   const [existingPhotosCount, setExistingPhotosCount] = useState(0);
@@ -40,20 +41,20 @@ export default function UploadPhotos() {
       try {
         setErrorMessage("");
         const listing = await getLandownerListing(listingId);
-        const existingPhotos = (listing?.photos || [])
+        const nextExistingPhotos = [null, null, null, null];
+        const nextPreviews = [null, null, null, null];
+
+        (listing?.photos || [])
           .slice(0, 4)
-          .map((photo) => `${imageBaseUrl}${photo.photo_url}`);
-
-        setExistingPhotosCount(existingPhotos.length);
-        setPreviews((prev) => {
-          const nextPreviews = [...prev];
-
-          existingPhotos.forEach((photoUrl, index) => {
-            nextPreviews[index] = photoUrl;
+          .forEach((photo, index) => {
+            nextExistingPhotos[index] = photo;
+            nextPreviews[index] = `${imageBaseUrl}${photo.photo_url}`;
           });
 
-          return nextPreviews;
-        });
+        setExistingPhotos(nextExistingPhotos);
+        setExistingPhotosCount(nextExistingPhotos.filter(Boolean).length);
+        setPhotos([null, null, null, null]);
+        setPreviews(nextPreviews);
       } catch (error) {
         console.error("Load existing photos error:", error);
         setErrorMessage(
@@ -70,9 +71,149 @@ export default function UploadPhotos() {
     [previews]
   );
 
-  const handlePhotoSelect = (index, file) => {
-    if (file && file.size > MAX_PHOTO_SIZE_BYTES) {
+  const getPhotoRequestContext = () => {
+    const configuredApiUrl = String(import.meta.env.VITE_API_URL || "/api").trim();
+    const token = localStorage.getItem("token");
+    const uploadOrigin = configuredApiUrl.startsWith("http")
+      ? trimTrailingSlashes(configuredApiUrl)
+      : "";
+    const photosBaseUrl = configuredApiUrl.startsWith("http")
+      ? `${uploadOrigin}/api/landowner/boarding-houses/${listingId}/photos`
+      : `${trimTrailingSlashes(
+          configuredApiUrl || "/api"
+        )}/landowner/boarding-houses/${listingId}/photos`;
+
+    if (!token) {
+      setErrorMessage("Please sign in again before uploading photos.");
+      return null;
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      window.location.hostname.endsWith(".vercel.app") &&
+      !configuredApiUrl.startsWith("http")
+    ) {
+      setErrorMessage(
+        "Photo uploads require VITE_API_URL to point to the Railway backend in Vercel."
+      );
+      return null;
+    }
+
+    return {
+      token,
+      uploadOrigin,
+      photosBaseUrl,
+    };
+  };
+
+  const handleReplacePhoto = async (index, currentPhoto, file) => {
+    const requestContext = getPhotoRequestContext();
+
+    if (!requestContext) {
+      if (fileInputRefs.current[index]) {
+        fileInputRefs.current[index].value = "";
+      }
+      return;
+    }
+
+    const { token, uploadOrigin, photosBaseUrl } = requestContext;
+    const formData = new FormData();
+    formData.append("photo", file);
+
+    try {
+      setErrorMessage("");
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      const response = await axios.put(
+        `${photosBaseUrl}/${currentPhoto.photo_id}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          onUploadProgress: (progressEvent) => {
+            if (!progressEvent.total) {
+              setUploadProgress(0);
+              return;
+            }
+
+            setUploadProgress(
+              Math.min(
+                100,
+                Math.round((progressEvent.loaded / progressEvent.total) * 100)
+              )
+            );
+          },
+        }
+      );
+
+      const nextPhoto = response?.data?.photo;
+
+      if (!nextPhoto?.photo_id || !nextPhoto?.photo_url) {
+        throw new Error("Replace succeeded but no photo payload was returned.");
+      }
+
+      const nextPreviewUrl = uploadOrigin
+        ? `${uploadOrigin}${nextPhoto.photo_url}`
+        : `${imageBaseUrl}${nextPhoto.photo_url}`;
+
+      setExistingPhotos((currentExistingPhotos) => {
+        const nextExistingPhotos = [...currentExistingPhotos];
+        nextExistingPhotos[index] = nextPhoto;
+        return nextExistingPhotos;
+      });
+      setPreviews((currentPreviews) => {
+        const nextPreviews = [...currentPreviews];
+        nextPreviews[index] = nextPreviewUrl;
+        return nextPreviews;
+      });
+      setPhotos((currentPhotos) => {
+        const nextPhotos = [...currentPhotos];
+        nextPhotos[index] = null;
+        return nextPhotos;
+      });
+    } catch (error) {
+      console.error("Replace photo error:", error);
+      const nextError =
+        (error.code === "ERR_NETWORK"
+          ? "Upload failed before the server responded. Check the Railway API URL and allowed CORS origins."
+          : "") ||
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Something went wrong while replacing the photo.";
+
+      setErrorMessage(nextError);
+    } finally {
+      if (fileInputRefs.current[index]) {
+        fileInputRefs.current[index].value = "";
+      }
+
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handlePhotoSelect = async (index, file) => {
+    if (!file) {
+      return;
+    }
+
+    if (file.size > MAX_PHOTO_SIZE_BYTES) {
       setErrorMessage("Each photo must be 20 MB or smaller.");
+      if (fileInputRefs.current[index]) {
+        fileInputRefs.current[index].value = "";
+      }
+      return;
+    }
+
+    const currentPhoto = existingPhotos[index];
+
+    if (
+      routeBase === "/landowner/edit-room" &&
+      currentPhoto?.photo_id
+    ) {
+      await handleReplacePhoto(index, currentPhoto, file);
       return;
     }
 
@@ -80,10 +221,8 @@ export default function UploadPhotos() {
     const updatedPreviews = [...previews];
 
     setErrorMessage("");
-    updatedPhotos[index] = file || null;
-    updatedPreviews[index] = file
-      ? URL.createObjectURL(file)
-      : updatedPreviews[index];
+    updatedPhotos[index] = file;
+    updatedPreviews[index] = URL.createObjectURL(file);
 
     setPhotos(updatedPhotos);
     setPreviews(updatedPreviews);
@@ -121,34 +260,13 @@ export default function UploadPhotos() {
       setUploadProgress(0);
 
       if (validFiles.length > 0) {
-        const configuredApiUrl = String(
-          import.meta.env.VITE_API_URL || "/api"
-        ).trim();
-        const token = localStorage.getItem("token");
-        const uploadOrigin = configuredApiUrl.startsWith("http")
-          ? trimTrailingSlashes(configuredApiUrl)
-          : "";
-        const uploadUrl = configuredApiUrl.startsWith("http")
-          ? `${uploadOrigin}/api/landowner/boarding-houses/${listingId}/photos`
-          : `${trimTrailingSlashes(
-              configuredApiUrl || "/api"
-            )}/landowner/boarding-houses/${listingId}/photos`;
+        const requestContext = getPhotoRequestContext();
 
-        if (!token) {
-          setErrorMessage("Please sign in again before uploading photos.");
+        if (!requestContext) {
           return;
         }
 
-        if (
-          typeof window !== "undefined" &&
-          window.location.hostname.endsWith(".vercel.app") &&
-          !configuredApiUrl.startsWith("http")
-        ) {
-          setErrorMessage(
-            "Photo uploads require VITE_API_URL to point to the Railway backend in Vercel."
-          );
-          return;
-        }
+        const { token, uploadOrigin, photosBaseUrl: uploadUrl } = requestContext;
 
         const totalFiles = validFiles.length;
         let completedFiles = 0;
@@ -282,9 +400,12 @@ export default function UploadPhotos() {
                       ref={(element) => {
                         fileInputRefs.current[index] = element;
                       }}
-                      onChange={(e) =>
-                        handlePhotoSelect(index, e.target.files?.[0] || null)
-                      }
+                      onChange={(e) => {
+                        void handlePhotoSelect(
+                          index,
+                          e.target.files?.[0] || null
+                        );
+                      }}
                     />
 
                     {previews[index] ? (

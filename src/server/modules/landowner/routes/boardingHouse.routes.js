@@ -1,8 +1,11 @@
 import express from "express";
+import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import {
   createBoardingHouseDraft,
+  deleteBoardingHousePhotos,
+  replaceBoardingHousePhoto,
   uploadBoardingHousePhotos,
 } from "../controllers/boardingHouse.controller.js";
 import {
@@ -44,7 +47,16 @@ const upload = multer({
   },
 });
 
-const getUploadErrorMessage = (error) => {
+const singlePhotoUpload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 20 * 1024 * 1024,
+    files: 1,
+  },
+});
+
+const getUploadErrorMessage = (error, fieldName = "photos", maxFiles = 5) => {
   if (!(error instanceof multer.MulterError)) {
     return error?.message || "Failed to upload photos";
   }
@@ -53,23 +65,77 @@ const getUploadErrorMessage = (error) => {
     case "LIMIT_FILE_SIZE":
       return "Each photo must be 20 MB or smaller.";
     case "LIMIT_FILE_COUNT":
-      return "You can upload up to 5 photos at a time.";
+      return `You can upload up to ${maxFiles} photo${maxFiles === 1 ? "" : "s"} at a time.`;
     case "LIMIT_UNEXPECTED_FILE":
-      return "Only the photos field can be used for image uploads.";
+      return `Only the ${fieldName} field can be used for image uploads.`;
     default:
       return error.message || "Failed to upload photos";
   }
 };
 
-const handleMulterErrors = (error, _req, res, next) => {
-  if (!error) {
-    return next();
-  }
+const createMulterErrorHandler =
+  ({ fieldName = "photos", maxFiles = 5 } = {}) =>
+  (error, _req, res, next) => {
+    if (!error) {
+      return next();
+    }
 
-  return res.status(400).json({ message: getUploadErrorMessage(error) });
+    return res.status(400).json({
+      message: getUploadErrorMessage(error, fieldName, maxFiles),
+    });
+  };
+
+const handleMulterErrors = createMulterErrorHandler({
+  fieldName: "photos",
+  maxFiles: 5,
+});
+
+const handleSinglePhotoMulterErrors = createMulterErrorHandler({
+  fieldName: "photo",
+  maxFiles: 1,
+});
+
+const authenticateLandowner = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Access token required" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.account_type !== "landowner") {
+      return res.status(403).json({ message: "Landowner access required" });
+    }
+
+    req.user = { landowner_id: decoded.landowner_id };
+
+    return next();
+  } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ message: "Invalid token" });
+    }
+
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
+    }
+
+    console.error("Landowner auth middleware error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
 };
 
 router.post("/draft", createBoardingHouseDraft);
+router.delete("/:id/photos", authenticateLandowner, deleteBoardingHousePhotos);
+router.put(
+  "/:boardingHouseId/photos/:photoId",
+  authenticateLandowner,
+  singlePhotoUpload.single("photo"),
+  handleSinglePhotoMulterErrors,
+  replaceBoardingHousePhoto
+);
 router.post(
   "/:id/photos",
   upload.array("photos", 5),
