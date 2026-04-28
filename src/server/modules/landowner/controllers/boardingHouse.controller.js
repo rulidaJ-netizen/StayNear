@@ -1,5 +1,9 @@
+import fs from "fs";
 import { db } from "../../../shared/db.js";
-import { toUploadsUrl } from "../../../shared/config/runtimePaths.js";
+import {
+  resolveUploadUrlPath,
+  toUploadsUrl,
+} from "../../../shared/config/runtimePaths.js";
 import {
   hasValidationErrors,
   sendValidationError,
@@ -146,6 +150,7 @@ export const replaceBoardingHousePhoto = (req, res) => {
   const normalizedPhotoId = Number(photoId);
   const createdAt = new Date();
   const nextPhotoUrl = toUploadsUrl("boardinghouses", file.filename);
+  const nextPhotoPath = resolveUploadUrlPath(nextPhotoUrl);
 
   if (
     !Number.isInteger(normalizedBoardingHouseId) ||
@@ -158,104 +163,84 @@ export const replaceBoardingHousePhoto = (req, res) => {
     return res.status(400).json({ message: "Invalid photo id" });
   }
 
-  db.beginTransaction((transactionError) => {
-    if (transactionError) {
-      console.error("Replace boarding house photo transaction error:", transactionError);
-      return res.status(500).json({
-        message: "Server error",
-        error: transactionError.message,
-      });
-    }
+  const cleanupNewUpload = () => {
+    fs.unlink(nextPhotoPath, (unlinkError) => {
+      if (unlinkError && unlinkError.code !== "ENOENT") {
+        console.error("Cleanup replacement upload error:", unlinkError);
+      }
+    });
+  };
 
-    db.query(
-      `
-        SELECT p.photo_id, p.boardinghouse_id
-        FROM boardinghouse_photos p
-        INNER JOIN boarding_house b
-          ON b.boardinghouse_id = p.boardinghouse_id
-        WHERE p.photo_id = ? AND p.boardinghouse_id = ? AND b.landowner_id = ?
-        LIMIT 1
-      `,
-      [normalizedPhotoId, normalizedBoardingHouseId, landownerId],
-      (lookupError, rows) => {
-        if (lookupError) {
-          console.error("Validate boarding house photo replace error:", lookupError);
-          return db.rollback(() =>
-            res.status(500).json({
+  db.query(
+    `
+      SELECT p.photo_id, p.boardinghouse_id, p.photo_url
+      FROM boardinghouse_photos p
+      INNER JOIN boarding_house b
+        ON b.boardinghouse_id = p.boardinghouse_id
+      WHERE p.photo_id = ? AND p.boardinghouse_id = ? AND b.landowner_id = ?
+      LIMIT 1
+    `,
+    [normalizedPhotoId, normalizedBoardingHouseId, landownerId],
+    (lookupError, rows) => {
+      if (lookupError) {
+        cleanupNewUpload();
+        console.error("Validate boarding house photo replace error:", lookupError);
+        return res.status(500).json({
+          message: "Server error",
+          error: lookupError.message,
+        });
+      }
+
+      if (!rows.length) {
+        cleanupNewUpload();
+        return res.status(404).json({ message: "Photo not found" });
+      }
+
+      const existingPhoto = rows[0];
+
+      db.query(
+        `
+          UPDATE boardinghouse_photos
+          SET photo_url = ?, created_at = ?
+          WHERE photo_id = ? AND boardinghouse_id = ?
+        `,
+        [
+          nextPhotoUrl,
+          createdAt,
+          normalizedPhotoId,
+          normalizedBoardingHouseId,
+        ],
+        (updateError) => {
+          if (updateError) {
+            cleanupNewUpload();
+            console.error("Update boarding house photo error:", updateError);
+            return res.status(500).json({
               message: "Server error",
-              error: lookupError.message,
-            })
-          );
-        }
+              error: updateError.message,
+            });
+          }
 
-        if (!rows.length) {
-          return db.rollback(() =>
-            res.status(404).json({ message: "Photo not found" })
-          );
-        }
+          const existingPhotoPath = resolveUploadUrlPath(existingPhoto.photo_url);
 
-        db.query(
-          `
-            DELETE FROM boardinghouse_photos
-            WHERE photo_id = ? AND boardinghouse_id = ?
-          `,
-          [normalizedPhotoId, normalizedBoardingHouseId],
-          (deleteError) => {
-            if (deleteError) {
-              console.error("Delete old boarding house photo error:", deleteError);
-              return db.rollback(() =>
-                res.status(500).json({
-                  message: "Server error",
-                  error: deleteError.message,
-                })
-              );
+          fs.unlink(existingPhotoPath, (unlinkError) => {
+            if (unlinkError && unlinkError.code !== "ENOENT") {
+              console.error("Delete old boarding house photo file error:", unlinkError);
             }
 
-            db.query(
-              `
-                INSERT INTO boardinghouse_photos (boardinghouse_id, photo_url, created_at)
-                VALUES (?, ?, ?)
-              `,
-              [normalizedBoardingHouseId, nextPhotoUrl, createdAt],
-              (insertError, result) => {
-                if (insertError) {
-                  console.error("Insert replacement boarding house photo error:", insertError);
-                  return db.rollback(() =>
-                    res.status(500).json({
-                      message: "Server error",
-                      error: insertError.message,
-                    })
-                  );
-                }
-
-                db.commit((commitError) => {
-                  if (commitError) {
-                    console.error("Commit replacement boarding house photo error:", commitError);
-                    return db.rollback(() =>
-                      res.status(500).json({
-                        message: "Server error",
-                        error: commitError.message,
-                      })
-                    );
-                  }
-
-                  return res.json({
-                    message: "Photo replaced successfully",
-                    photo: {
-                      photo_id: result.insertId,
-                      boardinghouse_id: normalizedBoardingHouseId,
-                      photo_url: nextPhotoUrl,
-                      created_at: createdAt,
-                    },
-                  });
-                });
-              }
-            );
-          }
-        );
-      }
-    );
-  });
+            return res.json({
+              message: "Photo replaced successfully",
+              photo: {
+                photo_id: normalizedPhotoId,
+                boardinghouse_id: normalizedBoardingHouseId,
+                photo_url: nextPhotoUrl,
+                created_at: createdAt,
+              },
+            });
+          });
+        }
+      );
+    }
+  );
 };
 
 export const deleteBoardingHousePhotos = (req, res) => {

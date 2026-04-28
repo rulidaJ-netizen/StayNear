@@ -159,9 +159,11 @@ export default function UploadPhotos() {
         : `${imageBaseUrl}${nextPhoto.photo_url}`;
 
       setExistingPhotos((currentExistingPhotos) => {
-        const nextExistingPhotos = [...currentExistingPhotos];
-        nextExistingPhotos[index] = nextPhoto;
-        return nextExistingPhotos;
+        return currentExistingPhotos.map((photo) =>
+          photo?.photo_id === currentPhoto.photo_id
+            ? { ...photo, ...nextPhoto }
+            : photo
+        );
       });
       setPreviews((currentPreviews) => {
         const nextPreviews = [...currentPreviews];
@@ -237,7 +239,7 @@ export default function UploadPhotos() {
     navigate("/landowner/add-room");
   };
 
-  const handlePhotoUpload = async () => {
+  const handleAddPhotos = async () => {
     try {
       if (!listingId.trim()) {
         setErrorMessage(
@@ -449,7 +451,7 @@ export default function UploadPhotos() {
               <button
                 type="button"
                 className="primary-btn"
-                onClick={handlePhotoUpload}
+                onClick={handleAddPhotos}
                 disabled={isUploading}
               >
                 {isUploading ? "Please wait..." : "Next"}
