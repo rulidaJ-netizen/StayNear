@@ -1,6 +1,6 @@
 import { useEffect} from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Heart, LogOut, User } from "lucide-react";   
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Home, LogOut, User } from "lucide-react";   
 import { getStoredUser } from "../../auth/api/authApi";
 import { useAuthSession } from "../../auth/context/useAuthSession";
 import { getLandownerProfile } from "../api/landownerApi";
@@ -64,6 +64,7 @@ export default function LandownerNavbar({
   const isProfileSection =
     location.pathname === "/landowner/profile" ||
     location.pathname === "/landowner/security";
+  const isDashboardSection = location.pathname === "/landowner/dashboard";
 
   const handleLogout = () => {
     clearUser();
@@ -72,17 +73,7 @@ export default function LandownerNavbar({
 
   return (
     <header className={styles.navbar}>
-      <div
-        className={styles.brand}
-        onClick={() => navigate("/landowner/dashboard")}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            navigate("/landowner/dashboard");
-          }
-        }}
-      >
+      <div className={styles.brand}>
         <div className={styles.iconWrap}>
           <Home size={22} />
         </div>
@@ -96,6 +87,13 @@ export default function LandownerNavbar({
       </div>
 
       <nav className={styles.nav}>
+        <Link
+          to="/landowner/dashboard"
+          className={`${styles.navBtn} ${isDashboardSection ? styles.active : ""}`}
+        >
+          <Home size={16} />
+          <span>Dashboard</span>
+        </Link>
 
         <button
           type="button"
