@@ -179,7 +179,7 @@ export default function UploadPhotos() {
       console.error("Replace photo error:", error);
       const nextError =
         (error.code === "ERR_NETWORK"
-          ? "Upload failed before the server responded. Check the Railway API URL and allowed CORS origins."
+          ? "Upload Failed! Check Your Internet Connection."
           : "") ||
         error.response?.data?.error ||
         error.response?.data?.message ||
@@ -351,7 +351,7 @@ export default function UploadPhotos() {
       console.error("Upload photos error:", error);
       const nextError =
         (error.code === "ERR_NETWORK"
-          ? "Upload failed before the server responded. Check the Railway API URL and allowed CORS origins."
+          ? "Upload failed! Check Your Internet Connection."
           : "") ||
         error.response?.data?.error ||
         error.response?.data?.message ||
