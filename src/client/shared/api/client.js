@@ -1,7 +1,7 @@
 import axios from "axios";
 
-const DEFAULT_API_BASE_PATH = "/api";
-const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
+const DEFAULT_API_BASE_PATH = "/local/api";
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.O.O.1", "O.O.O.O", "::1"]);
 
 const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
 const isProductionBuild = import.meta.env.PROD;
