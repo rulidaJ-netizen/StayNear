@@ -5,10 +5,7 @@ const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
 
 const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
 const isProductionBuild = import.meta.env.PROD;
-const isVercelHostname = (value) => {
-  const hostname = String(value || "").toLowerCase();
-  return hostname === "vercel.app" || hostname.endsWith(".vercel.app");
-};
+const isBrowser = typeof window !== "undefined";
 
 const isLocalUrl = (value) => {
   try {
@@ -46,28 +43,10 @@ const normalizeApiBaseUrl = (value) => {
 const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim();
 const sanitizedConfiguredApiUrl =
   isProductionBuild && isLocalUrl(configuredApiUrl) ? "" : configuredApiUrl;
-const forceSameOriginProxy =
-  isProductionBuild &&
-  typeof window !== "undefined" &&
-  isVercelHostname(window.location.hostname);
-const apiBaseUrl = normalizeApiBaseUrl(
-  forceSameOriginProxy ? DEFAULT_API_BASE_PATH : sanitizedConfiguredApiUrl
+const useSameOriginProxy = isProductionBuild && isBrowser;
+export const apiBaseUrl = normalizeApiBaseUrl(
+  useSameOriginProxy ? DEFAULT_API_BASE_PATH : sanitizedConfiguredApiUrl
 );
-
-const isMissingVercelApiUrl = () => {
-  if (
-    sanitizedConfiguredApiUrl ||
-    forceSameOriginProxy ||
-    !isProductionBuild ||
-    typeof window === "undefined"
-  ) {
-    return false;
-  }
-
-  const hostname = String(window.location.hostname || "").toLowerCase();
-
-  return isVercelHostname(hostname);
-};
 
 const resolveImageBaseUrl = (apiBaseUrl) => {
   const configuredImageBaseUrl = String(
@@ -78,15 +57,12 @@ const resolveImageBaseUrl = (apiBaseUrl) => {
       ? ""
       : configuredImageBaseUrl;
 
-  if (forceSameOriginProxy && typeof window !== "undefined") {
+  if (useSameOriginProxy && isBrowser) {
     return window.location.origin;
   }
 
   if (sanitizedConfiguredImageBaseUrl) {
-    if (
-      sanitizedConfiguredImageBaseUrl.startsWith("/") &&
-      typeof window !== "undefined"
-    ) {
+    if (sanitizedConfiguredImageBaseUrl.startsWith("/") && isBrowser) {
       return window.location.origin;
     }
 
@@ -96,7 +72,7 @@ const resolveImageBaseUrl = (apiBaseUrl) => {
   try {
     return new URL(apiBaseUrl).origin;
   } catch {
-    if (typeof window !== "undefined") {
+    if (isBrowser) {
       return window.location.origin;
     }
 
@@ -104,17 +80,9 @@ const resolveImageBaseUrl = (apiBaseUrl) => {
   }
 };
 
-if (isMissingVercelApiUrl()) {
-  console.error(
-    "[api] VITE_API_URL is not configured for this Vercel deployment. " +
-      "Requests are falling back to /api. " +
-      "If Vercel is not proxying /api to your backend, set VITE_API_URL appropriately and redeploy."
-  );
-}
-
-if (forceSameOriginProxy) {
+if (useSameOriginProxy) {
   console.info(
-    "[api] Using same-origin /api and /uploads routes on this Vercel deployment."
+    "[api] Using same-origin /api and /uploads routes in this production browser build."
   );
 }
 
@@ -122,6 +90,17 @@ if (isProductionBuild && configuredApiUrl && !sanitizedConfiguredApiUrl) {
   console.error(
     `[api] Refusing to rely on a localhost API URL in production: "${configuredApiUrl}". ` +
       "Ignoring it and falling back to /api instead."
+  );
+}
+
+if (
+  useSameOriginProxy &&
+  sanitizedConfiguredApiUrl &&
+  normalizeApiBaseUrl(sanitizedConfiguredApiUrl) !== DEFAULT_API_BASE_PATH
+) {
+  console.info(
+    `[api] Ignoring the production VITE_API_URL value "${configuredApiUrl}" ` +
+      "and using the same-origin /api proxy instead."
   );
 }
 

@@ -5,12 +5,20 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/auth/:path*",
+      "destination": "/api/server?target=api&path=auth/:path*"
+    },
+    {
+      "source": "/api/health",
+      "destination": "/api/server?target=api&path=health"
+    },
+    {
       "source": "/api/:path*",
-      "destination": "/api/server?target=api&path=:path*"
+      "destination": "/api/proxy?target=api&path=:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "/api/server?target=uploads&path=:path*"
+      "destination": "/api/proxy?target=uploads&path=:path*"
     },
     {
       "source": "/((?!api/|uploads/).*)",
