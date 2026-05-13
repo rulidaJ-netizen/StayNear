@@ -34,6 +34,8 @@ const normalizeAccountType = (value) =>
 const normalizeEmail = (value) => String(value ?? "").trim().toLowerCase();
 const HASH_ROUNDS = 12;
 
+const getJwtSecret = () => String(process.env.JWT_SECRET || "").trim();
+
 const serializeAuthUser = (account) => ({
   account_id: account.accountId ?? null,
   account_type: String(account.accountType ?? "").toLowerCase(),
@@ -181,11 +183,19 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
+    const jwtSecret = getJwtSecret();
 
     if (!hasValue(email) || !hasValue(password)) {
       return res
         .status(400)
         .json({ message: "Email and password are required" });
+    }
+
+    if (!jwtSecret) {
+      console.error("Auth login error: JWT_SECRET is not configured");
+      return res
+        .status(500)
+        .json({ message: "Authentication service is not configured." });
     }
 
     const normalizedEmail = normalizeEmail(email);
@@ -227,7 +237,7 @@ export const login = async (req, res) => {
       };
     }
 
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+    const token = jwt.sign(tokenPayload, jwtSecret, {
       expiresIn: "7d",
     });
 

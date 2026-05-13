@@ -1,11 +1,20 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 const resolveConfiguredPath = (value, fallbackPath) =>
   value ? path.resolve(value) : fallbackPath;
 
 export const rootDir = process.cwd();
-export const dataDir = resolveConfiguredPath(process.env.DATA_DIR, rootDir);
+const isRunningOnVercel = Boolean(process.env.VERCEL);
+const defaultDataDir = isRunningOnVercel
+  ? path.join(os.tmpdir(), "staynear")
+  : rootDir;
+
+export const dataDir = resolveConfiguredPath(
+  process.env.DATA_DIR,
+  defaultDataDir
+);
 export const uploadsDir = resolveConfiguredPath(
   process.env.UPLOADS_DIR,
   path.join(dataDir, "uploads")

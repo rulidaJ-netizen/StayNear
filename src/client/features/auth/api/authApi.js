@@ -3,6 +3,50 @@ import api from "../../../shared/api/client";
 const USER_STORAGE_KEY = "user";
 const TOKEN_STORAGE_KEY = "token";
 
+const stringifyErrorValue = (value) => {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(stringifyErrorValue).filter(Boolean).join(", ");
+  }
+
+  if (value && typeof value === "object") {
+    const nestedMessage = stringifyErrorValue(value.message);
+
+    if (nestedMessage) {
+      return nestedMessage;
+    }
+
+    const nestedError = stringifyErrorValue(value.error);
+
+    if (nestedError) {
+      return nestedError;
+    }
+
+    const code = typeof value.code === "string" ? value.code.trim() : "";
+
+    if (code) {
+      return code;
+    }
+  }
+
+  return "";
+};
+
+export const getAuthErrorMessage = (error, fallback = "Request failed") =>
+  stringifyErrorValue(error?.response?.data?.message) ||
+  stringifyErrorValue(error?.response?.data?.error) ||
+  stringifyErrorValue(error?.message) ||
+  fallback;
+
+export const getAuthFieldErrors = (error) => {
+  const fieldErrors = error?.response?.data?.errors;
+
+  return fieldErrors && typeof fieldErrors === "object" ? fieldErrors : null;
+};
+
 export const normalizeAuthUser = (user) => {
   if (!user || typeof user !== "object") {
     return null;

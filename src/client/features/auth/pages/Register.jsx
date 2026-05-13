@@ -11,7 +11,11 @@ import {
     Lock,
     MapPin,   
   } from "lucide-react";
-import { registerUser } from "../api/authApi";
+import {
+  getAuthErrorMessage,
+  getAuthFieldErrors,
+  registerUser,
+} from "../api/authApi";
 import { useAuthSession } from "../context/useAuthSession";
 import { validateRegisterForm } from "../utils/registerValidation";
 import { getBirthdateInputBounds } from "../../../../shared/utils/birthdate.js";
@@ -97,18 +101,17 @@ export default function Register() {
       });
     } catch (error) {
       console.error("Register error:", error);
-      const serverErrors = error.response?.data?.errors;
+      const serverErrors = getAuthFieldErrors(error);
+      const message = getAuthErrorMessage(
+        error,
+        "Something went wrong during registration"
+      );
 
       if (serverErrors && typeof serverErrors === "object") {
         setErrors(serverErrors);
-        setError(error.response?.data?.message || "Validation failed.");
+        setError(message || "Validation failed.");
       } else {
-        setError(
-          error.response?.data?.message ||
-            error.response?.data?.error ||
-            error.message ||
-            "Something went wrong during registration"
-        );
+        setError(message);
       }
     } finally {
       setIsSubmitting(false);

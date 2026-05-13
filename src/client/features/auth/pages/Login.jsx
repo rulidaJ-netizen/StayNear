@@ -2,7 +2,7 @@ import "../styles/auth.css";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Home, Mail, Lock, UserRound } from "lucide-react";
-import { loginUser } from "../api/authApi";
+import { getAuthErrorMessage, loginUser } from "../api/authApi";
 import { useAuthSession } from "../context/useAuthSession";
 
 export default function Login() {
@@ -94,9 +94,14 @@ export default function Login() {
       console.error("Login error:", error);
 
       const status = error.response?.status;
-      const message = error.response?.data?.message || error.response?.data?.error || "";
+      const message = getAuthErrorMessage(error, "Login failed");
+      const messageLower = message.toLowerCase();
 
-      if (status === 401 || message.toLowerCase().includes("password") || message.toLowerCase().includes("credential")) {
+      if (
+        status === 401 ||
+        messageLower.includes("password") ||
+        messageLower.includes("credential")
+      ) {
         setError("Incorrect Password.");
         return;
       }
