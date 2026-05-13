@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../../shared/prismaClient.js";
-import { db } from "../../shared/db.js";
 import {
   hasValidationErrors,
   sendValidationError,
@@ -10,7 +9,7 @@ import {
   validateEmailField,
   validateNameField,
 } from "../../shared/validation/inputValidation.js";
-import { parseBirthdateInput } from "../../../shared/utils/birthdate.js";
+import { validateBirthdateRange } from "../../../shared/utils/birthdate.js";
 
 const AUTH_LOGIN_SELECT = {
   accountId: true,
@@ -34,10 +33,6 @@ const normalizeAccountType = (value) =>
 
 const normalizeEmail = (value) => String(value ?? "").trim().toLowerCase();
 const HASH_ROUNDS = 12;
-const dbPromise = db.promise();
-const isPostgresPrismaEnabled = /^postgres(ql)?:\/\//i.test(
-  String(process.env.DATABASE_URL || "").trim()
-);
 
 const serializeAuthUser = (account) => ({
   account_id: account.accountId ?? null,
@@ -63,17 +58,6 @@ const verifyPassword = async (password, storedPassword) => {
 
   return password === normalizedStoredPassword;
 };
-
-const queryAsync = async (sql, params = []) => {
-  const [rows] = await dbPromise.query(sql, params);
-  return rows;
-};
-
-const beginTransactionAsync = () => dbPromise.beginTransaction();
-
-const commitAsync = () => dbPromise.commit();
-
-const rollbackAsync = () => dbPromise.rollback();
 
 export const register = async (req, res) => {
   try {
@@ -125,63 +109,65 @@ export const register = async (req, res) => {
       );
     }
 
-    const parsedBirthdate = parseBirthdateInput(birthdate);
+    const birthdateValidation = validateBirthdateRange(birthdate);
     const normalizedAddress = hasValue(address) ? String(address).trim() : "";
-    const existingAccountRows = await queryAsync(
-      "SELECT account_id FROM account WHERE email = ? LIMIT 1",
-      [normalizedEmail]
-    );
+    const existingAccount = await prisma.account.findUnique({
+      where: { email: normalizedEmail },
+      select: { accountId: true },
+    });
 
-    if (existingAccountRows.length > 0) {
+    if (existingAccount) {
       return res.status(409).json({ message: "Email already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, HASH_ROUNDS);
-    const profileTable =
-      normalizedAccountType === "STUDENT" ? "student" : "landowner";
-    const profileIdColumn =
-      normalizedAccountType === "STUDENT" ? "student_id" : "landowner_id";
+    const normalizedProfileData = {
+      firstName: String(firstName).trim(),
+      middleName: hasValue(middleName) ? String(middleName).trim() : null,
+      lastName: String(lastName).trim(),
+      email: normalizedEmail,
+      address: normalizedAddress,
+      gender: String(gender).trim(),
+      mobileNo: String(mobileNo).trim(),
+      birthdate: birthdateValidation.date,
+    };
 
-    await beginTransactionAsync();
+    await prisma.$transaction(async (tx) => {
+      if (normalizedAccountType === "STUDENT") {
+        const student = await tx.student.create({
+          data: {
+            ...normalizedProfileData,
+            age: birthdateValidation.age,
+          },
+          select: { studentId: true },
+        });
 
-    try {
-      const profileResult = await queryAsync(
-        `
-          INSERT INTO ${profileTable}
-            (firstName, middleName, lastName, email, address, gender, mobile_no, birthdate)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-        [
-          String(firstName).trim(),
-          hasValue(middleName) ? String(middleName).trim() : null,
-          String(lastName).trim(),
-          normalizedEmail,
-          normalizedAddress,
-          String(gender).trim(),
-          String(mobileNo).trim(),
-          parsedBirthdate?.iso,
-        ]
-      );
+        await tx.account.create({
+          data: {
+            accountType: "STUDENT",
+            email: normalizedEmail,
+            password: hashedPassword,
+            studentId: student.studentId,
+          },
+        });
 
-      await queryAsync(
-        `
-          INSERT INTO account (account_type, email, password, ${profileIdColumn})
-          VALUES (?, ?, ?, ?)
-        `,
-        [
-          normalizedAccountType,
-          normalizedEmail,
-          hashedPassword,
-          profileResult.insertId,
-        ]
-      );
+        return;
+      }
 
-      await commitAsync();
-    } catch (transactionError) {
-      await rollbackAsync();
-      console.error("Auth register transaction error:", transactionError);
-      return res.status(500).json({ message: "Registration failed" });
-    }
+      const landowner = await tx.landowner.create({
+        data: normalizedProfileData,
+        select: { landownerId: true },
+      });
+
+      await tx.account.create({
+        data: {
+          accountType: "LANDOWNER",
+          email: normalizedEmail,
+          password: hashedPassword,
+          landownerId: landowner.landownerId,
+        },
+      });
+    });
 
     return res.status(201).json({
       message: "Registration successful. Please log in with your new account.",
@@ -205,28 +191,10 @@ export const login = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
     const requestedRole = normalizeAccountType(role);
 
-    const account = isPostgresPrismaEnabled
-      ? await prisma.account.findUnique({
-          where: { email: normalizedEmail },
-          select: AUTH_LOGIN_SELECT,
-        })
-      : (
-          await queryAsync(
-            `
-              SELECT
-                account_id AS accountId,
-                account_type AS accountType,
-                email,
-                password,
-                student_id AS studentId,
-                landowner_id AS landownerId
-              FROM account
-              WHERE email = ?
-              LIMIT 1
-            `,
-            [normalizedEmail]
-          )
-        )[0] ?? null;
+    const account = await prisma.account.findUnique({
+      where: { email: normalizedEmail },
+      select: AUTH_LOGIN_SELECT,
+    });
 
     if (!account) {
       return res.status(404).json({ message: "Account not found" });

@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import prisma from "./shared/prismaClient.js";
-import { db } from "./shared/db.js";
+import { db, isMysqlConfigured } from "./shared/db.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import landownerBoardingHouseRoutes from "./modules/landowner/routes/boardingHouse.routes.js";
 import landownerListingsRoutes from "./modules/landowner/routes/listings.routes.js";
@@ -19,9 +19,10 @@ import { uploadsDir } from "./shared/config/runtimePaths.js";
 import studentViewRoutes from "./modules/student/routes/studentViewRoutes.js";
 
 const app = express();
+const isRunningOnVercel = Boolean(process.env.VERCEL);
 const prismaDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
 const isPostgresPrismaEnabled = /^postgres(ql)?:\/\//i.test(prismaDatabaseUrl);
-const dbPromise = db.promise();
+const dbPromise = typeof db.promise === "function" ? db.promise() : null;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
@@ -92,6 +93,11 @@ const corsOptions = {
 
 const pingMysqlConnection = () =>
   new Promise((resolve, reject) => {
+    if (!isMysqlConfigured) {
+      resolve();
+      return;
+    }
+
     db.query("SELECT 1", (error) => {
       if (error) {
         reject(error);
@@ -134,13 +140,19 @@ app.get("/", (_req, res) => {
 
 app.get("/api/health", async (_req, res) => {
   try {
-    const checks = [pingMysqlConnection()];
+    const checks = [];
 
     if (isPostgresPrismaEnabled) {
-      checks.unshift(prisma.$queryRaw`SELECT 1`);
+      checks.push(prisma.$queryRaw`SELECT 1`);
     }
 
-    await Promise.all(checks);
+    if (isMysqlConfigured) {
+      checks.push(pingMysqlConnection());
+    }
+
+    if (checks.length > 0) {
+      await Promise.all(checks);
+    }
 
     return res.json({
       status: "ok",
@@ -160,9 +172,10 @@ app.get("/api/health", async (_req, res) => {
 
 app.get("/accounts", async (_req, res) => {
   try {
-    const accounts = isPostgresPrismaEnabled
-      ? await prisma.account.findMany()
-      : await queryRows("SELECT * FROM account");
+    const accounts =
+      isPostgresPrismaEnabled || !isMysqlConfigured
+        ? await prisma.account.findMany()
+        : await queryRows("SELECT * FROM account");
     res.json(accounts);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -171,9 +184,10 @@ app.get("/accounts", async (_req, res) => {
 
 app.get("/students", async (_req, res) => {
   try {
-    const students = isPostgresPrismaEnabled
-      ? await prisma.student.findMany()
-      : await queryRows("SELECT * FROM student");
+    const students =
+      isPostgresPrismaEnabled || !isMysqlConfigured
+        ? await prisma.student.findMany()
+        : await queryRows("SELECT * FROM student");
     res.json(students);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -217,67 +231,76 @@ const DB_KEEP_ALIVE_INTERVAL_MS = Number(
 
 async function keepDatabaseAlive() {
   try {
-    const checks = [pingMysqlConnection()];
+    const checks = [];
 
     if (isPostgresPrismaEnabled) {
-      checks.unshift(prisma.$queryRaw`SELECT 1`);
+      checks.push(prisma.$queryRaw`SELECT 1`);
     }
 
-    await Promise.all(checks);
+    if (isMysqlConfigured) {
+      checks.push(pingMysqlConnection());
+    }
+
+    if (checks.length > 0) {
+      await Promise.all(checks);
+    }
+
     console.log("[db] keep-alive ping");
   } catch (error) {
     console.error("[db] keep-alive failed:", error?.message || error);
   }
 }
 
-const keepAliveTimer = setInterval(keepDatabaseAlive, DB_KEEP_ALIVE_INTERVAL_MS);
+if (!isRunningOnVercel) {
+  const keepAliveTimer = setInterval(keepDatabaseAlive, DB_KEEP_ALIVE_INTERVAL_MS);
 
-if (typeof keepAliveTimer.unref === "function") {
-  keepAliveTimer.unref();
-}
-
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`CORS allowed origins: ${allowedOrigins.join(", ") || "none"}`);
-});
-
-process.on("uncaughtException", (error) => {
-  console.error("Uncaught Exception:", error);
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
-});
-
-const shutdown = async (signal) => {
-  console.log(`${signal} received, shutting down gracefully.`);
-  clearInterval(keepAliveTimer);
-
-  await new Promise((resolve) => {
-    server.close(() => resolve());
-  });
-
-  try {
-    if (isPostgresPrismaEnabled) {
-      await prisma.$disconnect();
-    }
-  } catch (error) {
-    console.error("Prisma disconnect failed:", error);
+  if (typeof keepAliveTimer.unref === "function") {
+    keepAliveTimer.unref();
   }
 
-  db.end((error) => {
-    if (error) {
-      console.error("MySQL disconnect failed:", error);
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`CORS allowed origins: ${allowedOrigins.join(", ") || "none"}`);
+  });
+
+  process.on("uncaughtException", (error) => {
+    console.error("Uncaught Exception:", error);
+  });
+
+  process.on("unhandledRejection", (reason, promise) => {
+    console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  });
+
+  const shutdown = async (signal) => {
+    console.log(`${signal} received, shutting down gracefully.`);
+    clearInterval(keepAliveTimer);
+
+    await new Promise((resolve) => {
+      server.close(() => resolve());
+    });
+
+    try {
+      await prisma.$disconnect();
+    } catch (error) {
+      console.error("Prisma disconnect failed:", error);
     }
 
-    process.exit(0);
+    db.end((error) => {
+      if (error) {
+        console.error("MySQL disconnect failed:", error);
+      }
+
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
   });
-};
 
-process.on("SIGINT", () => {
-  void shutdown("SIGINT");
-});
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
+}
 
-process.on("SIGTERM", () => {
-  void shutdown("SIGTERM");
-});
+export default app;
