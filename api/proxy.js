@@ -4,13 +4,35 @@ export const config = {
   },
 };
 
-const BACKEND_ORIGIN = "https://staynear-api-production.up.railway.app";
+const DEFAULT_BACKEND_ORIGIN = "https://staynear-api-production.up.railway.app";
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
   "content-length",
   "host",
   "transfer-encoding",
 ]);
+
+const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
+
+const resolveBackendOrigin = () => {
+  const configuredValue = String(
+    process.env.BACKEND_ORIGIN || process.env.VITE_API_URL || ""
+  ).trim();
+
+  if (!configuredValue) {
+    return DEFAULT_BACKEND_ORIGIN;
+  }
+
+  try {
+    const url = new URL(configuredValue);
+    url.pathname = "";
+    url.search = "";
+    url.hash = "";
+    return trimTrailingSlashes(url.toString());
+  } catch {
+    return DEFAULT_BACKEND_ORIGIN;
+  }
+};
 
 const readRequestBody = async (req) => {
   const chunks = [];
@@ -33,14 +55,16 @@ const normalizePathParts = (value) => {
     .filter(Boolean);
 };
 
-const buildTargetUrl = (pathValue, query) => {
+const buildTargetUrl = (target, pathValue, query) => {
   const normalizedPath = normalizePathParts(pathValue)
     .map((part) => encodeURIComponent(part))
     .join("/");
   const searchParams = new URLSearchParams();
+  const backendOrigin = resolveBackendOrigin();
+  const targetBasePath = target === "uploads" ? "uploads" : "api";
 
   Object.entries(query || {}).forEach(([key, value]) => {
-    if (key === "path" || value === undefined) {
+    if (key === "path" || key === "target" || value === undefined) {
       return;
     }
 
@@ -54,7 +78,7 @@ const buildTargetUrl = (pathValue, query) => {
 
   const queryString = searchParams.toString();
 
-  return `${BACKEND_ORIGIN}/api/${normalizedPath}${queryString ? `?${queryString}` : ""}`;
+  return `${backendOrigin}/${targetBasePath}/${normalizedPath}${queryString ? `?${queryString}` : ""}`;
 };
 
 const buildForwardHeaders = (headers) => {
@@ -83,7 +107,11 @@ const buildForwardHeaders = (headers) => {
 };
 
 export default async function handler(req, res) {
-  const targetUrl = buildTargetUrl(req.query?.path, req.query);
+  const targetUrl = buildTargetUrl(
+    req.query?.target,
+    req.query?.path,
+    req.query
+  );
   const method = String(req.method || "GET").toUpperCase();
   const headers = buildForwardHeaders(req.headers);
   const body =

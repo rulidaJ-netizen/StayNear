@@ -111,8 +111,8 @@ If your local MySQL data needs to move into Railway:
 3. Add these frontend environment variables in Vercel:
 
 ```env
-VITE_API_URL=https://your-backend.up.railway.app
-VITE_IMAGE_BASE_URL=https://your-backend.up.railway.app
+BACKEND_ORIGIN=https://your-backend.up.railway.app
+VITE_API_URL=/api
 ```
 
 Notes:
@@ -120,8 +120,9 @@ Notes:
 - Do not include a trailing slash
 - apply them to `Production`
 - apply them to `Preview` too if preview deployments should hit Railway
-- `src/client/shared/api/client.js` now accepts either the Railway origin or a full `/api` URL
-- if `VITE_API_URL` is set to a bare origin, the client automatically uses its `/api` routes
+- `api/proxy.js` now reads `BACKEND_ORIGIN` on Vercel and forwards `/api/*` and `/uploads/*` there
+- the frontend should use same-origin `/api` and `/uploads` on Vercel instead of calling Railway directly from the browser
+- leave `VITE_IMAGE_BASE_URL` unset on Vercel unless you intentionally want a different image host
 
 ## CORS
 

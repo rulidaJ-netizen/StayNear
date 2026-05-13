@@ -3,19 +3,20 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Account {
   accountId   Int         @id @default(autoincrement()) @map("account_id")
   accountType AccountType @map("account_type")
-  email       String      @unique(map: "email") @map("email")
+  email       String      @unique(map: "account_email_key") @map("email")
   password    String      @db.VarChar(255)
-  studentId   Int?        @unique(map: "student_id") @map("student_id")
-  landownerId Int?        @unique(map: "landowner_id") @map("landowner_id")
-  landowner   Landowner?  @relation(fields: [landownerId], references: [landownerId], onUpdate: Restrict, map: "fk_account_landowner")
-  student     Student?    @relation(fields: [studentId], references: [studentId], onUpdate: Restrict, map: "fk_account_student")
+  studentId   Int?        @unique(map: "account_student_id_key") @map("student_id")
+  landownerId Int?        @unique(map: "account_landowner_id_key") @map("landowner_id")
+  landowner   Landowner?  @relation(fields: [landownerId], references: [landownerId], onDelete: SetNull, onUpdate: Restrict, map: "fk_account_landowner")
+  student     Student?    @relation(fields: [studentId], references: [studentId], onDelete: SetNull, onUpdate: Restrict, map: "fk_account_student")
 
   @@map("account")
 }
@@ -38,7 +39,7 @@ model BoardingHouse {
   propertyViews          PropertyView[]
   rooms                  Room[]
 
-  @@index([landownerId], map: "fk_boardinghouse_landowner")
+  @@index([landownerId], map: "boarding_house_landowner_id_idx")
   @@map("boarding_house")
 }
 
@@ -46,10 +47,10 @@ model BoardinghousePhoto {
   photoId         Int           @id @default(autoincrement()) @map("photo_id")
   boardinghouseId Int           @map("boardinghouse_id")
   photoUrl        String        @map("photo_url") @db.VarChar(255)
-  createdAt       DateTime      @default(now()) @map("created_at") @db.DateTime(0)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamp(0)
   boardingHouse   BoardingHouse @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade, onUpdate: Restrict, map: "fk_photos_boardinghouse")
 
-  @@index([boardinghouseId], map: "fk_photos_boardinghouse")
+  @@index([boardinghouseId], map: "boardinghouse_photos_boardinghouse_id_idx")
   @@map("boardinghouse_photos")
 }
 
@@ -57,12 +58,12 @@ model Favorite {
   favoriteId      Int           @id @default(autoincrement()) @map("favorite_id")
   studentId       Int           @map("student_id")
   boardinghouseId Int           @map("boardinghouse_id")
-  createdAt       DateTime      @default(now()) @map("created_at") @db.DateTime(0)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamp(0)
   boardingHouse   BoardingHouse @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade, onUpdate: Restrict, map: "fk_favorite_boardinghouse")
   student         Student       @relation(fields: [studentId], references: [studentId], onDelete: Cascade, onUpdate: Restrict, map: "fk_favorite_student")
 
   @@unique([studentId, boardinghouseId], map: "uniq_favorite")
-  @@index([boardinghouseId], map: "fk_favorite_boardinghouse")
+  @@index([boardinghouseId], map: "favorites_boardinghouse_id_idx")
   @@map("favorites")
 }
 
@@ -70,12 +71,12 @@ model PropertyView {
   viewId          Int           @id @default(autoincrement()) @map("view_id")
   boardinghouseId Int           @map("boardinghouse_id")
   studentId       Int           @map("student_id")
-  viewedAt        DateTime      @default(now()) @map("viewed_at") @db.DateTime(0)
-  boardingHouse   BoardingHouse @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade)
-  student         Student       @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  viewedAt        DateTime      @default(now()) @map("viewed_at") @db.Timestamp(0)
+  boardingHouse   BoardingHouse @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade, map: "property_views_boardinghouse_id_fkey")
+  student         Student       @relation(fields: [studentId], references: [studentId], onDelete: Cascade, map: "property_views_student_id_fkey")
 
   @@unique([studentId, boardinghouseId], map: "property_views_student_id_boardinghouse_id_key")
-  @@index([boardinghouseId], map: "property_views_boardinghouse_id_fkey")
+  @@index([boardinghouseId], map: "property_views_boardinghouse_id_idx")
   @@map("property_views")
 }
 
@@ -84,7 +85,7 @@ model Landowner {
   firstName      String          @map("firstName") @db.VarChar(100)
   middleName     String?         @map("middleName") @db.VarChar(100)
   lastName       String          @map("lastName") @db.VarChar(100)
-  email          String          @unique(map: "email") @map("email")
+  email          String          @unique(map: "landowner_email_key") @map("email")
   address        String          @db.VarChar(255)
   gender         String          @db.VarChar(50)
   mobileNo       String          @map("mobile_no") @db.VarChar(50)
@@ -105,10 +106,10 @@ model Room {
   studentId          Int?               @map("student_id")
   boardinghouseId    Int                @map("boardinghouse_id")
   boardingHouse      BoardingHouse      @relation(fields: [boardinghouseId], references: [boardinghouseId], onDelete: Cascade, onUpdate: Restrict, map: "fk_rooms_boardinghouse")
-  student            Student?           @relation(fields: [studentId], references: [studentId], onUpdate: Restrict, map: "fk_rooms_student")
+  student            Student?           @relation(fields: [studentId], references: [studentId], onDelete: SetNull, onUpdate: Restrict, map: "fk_rooms_student")
 
-  @@index([boardinghouseId], map: "fk_rooms_boardinghouse")
-  @@index([studentId], map: "fk_rooms_student")
+  @@index([boardinghouseId], map: "rooms_boardinghouse_id_idx")
+  @@index([studentId], map: "rooms_student_id_idx")
   @@map("rooms")
 }
 
@@ -117,7 +118,7 @@ model Student {
   firstName     String         @map("firstName") @db.VarChar(100)
   middleName    String?        @map("middleName") @db.VarChar(100)
   lastName      String         @map("lastName") @db.VarChar(100)
-  email         String         @unique(map: "email") @map("email")
+  email         String         @unique(map: "student_email_key") @map("email")
   address       String         @db.VarChar(255)
   gender        String         @db.VarChar(50)
   age           Int

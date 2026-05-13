@@ -1,7 +1,7 @@
 import axios from "axios";
 
-const DEFAULT_API_BASE_PATH = "/local/api";
-const LOCAL_HOSTNAMES = new Set(["localhost", "127.O.O.1", "O.O.O.O", "::1"]);
+const DEFAULT_API_BASE_PATH = "/api";
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
 
 const trimTrailingSlashes = (value) => String(value ?? "").replace(/\/+$/, "");
 const isProductionBuild = import.meta.env.PROD;
@@ -83,6 +83,13 @@ const resolveImageBaseUrl = (apiBaseUrl) => {
   }
 
   if (sanitizedConfiguredImageBaseUrl) {
+    if (
+      sanitizedConfiguredImageBaseUrl.startsWith("/") &&
+      typeof window !== "undefined"
+    ) {
+      return window.location.origin;
+    }
+
     return trimTrailingSlashes(sanitizedConfiguredImageBaseUrl);
   }
 
@@ -101,7 +108,7 @@ if (isMissingVercelApiUrl()) {
   console.error(
     "[api] VITE_API_URL is not configured for this Vercel deployment. " +
       "Requests are falling back to /api. " +
-      "If Vercel is not proxying /api to Railway, set VITE_API_URL to your Railway backend origin and redeploy."
+      "If Vercel is not proxying /api to your backend, set VITE_API_URL appropriately and redeploy."
   );
 }
 
