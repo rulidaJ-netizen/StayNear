@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./shared/config/loadEnv.js";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
@@ -19,6 +19,9 @@ import { uploadsDir } from "./shared/config/runtimePaths.js";
 import studentViewRoutes from "./modules/student/routes/studentViewRoutes.js";
 
 const app = express();
+const prismaDatabaseUrl = String(process.env.DATABASE_URL || "").trim();
+const isPostgresPrismaEnabled = /^postgres(ql)?:\/\//i.test(prismaDatabaseUrl);
+const dbPromise = db.promise();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
@@ -99,6 +102,11 @@ const pingMysqlConnection = () =>
     });
   });
 
+const queryRows = async (sql, params = []) => {
+  const [rows] = await dbPromise.query(sql, params);
+  return rows;
+};
+
 const setUploadCacheHeaders = (res, filePath) => {
   if (cacheableUploadExtensions.has(path.extname(filePath).toLowerCase())) {
     res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
@@ -126,7 +134,13 @@ app.get("/", (_req, res) => {
 
 app.get("/api/health", async (_req, res) => {
   try {
-    await Promise.all([prisma.$queryRaw`SELECT 1`, pingMysqlConnection()]);
+    const checks = [pingMysqlConnection()];
+
+    if (isPostgresPrismaEnabled) {
+      checks.unshift(prisma.$queryRaw`SELECT 1`);
+    }
+
+    await Promise.all(checks);
 
     return res.json({
       status: "ok",
@@ -146,7 +160,9 @@ app.get("/api/health", async (_req, res) => {
 
 app.get("/accounts", async (_req, res) => {
   try {
-    const accounts = await prisma.account.findMany();
+    const accounts = isPostgresPrismaEnabled
+      ? await prisma.account.findMany()
+      : await queryRows("SELECT * FROM account");
     res.json(accounts);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -155,7 +171,9 @@ app.get("/accounts", async (_req, res) => {
 
 app.get("/students", async (_req, res) => {
   try {
-    const students = await prisma.student.findMany();
+    const students = isPostgresPrismaEnabled
+      ? await prisma.student.findMany()
+      : await queryRows("SELECT * FROM student");
     res.json(students);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -199,7 +217,13 @@ const DB_KEEP_ALIVE_INTERVAL_MS = Number(
 
 async function keepDatabaseAlive() {
   try {
-    await Promise.all([prisma.$queryRaw`SELECT 1`, pingMysqlConnection()]);
+    const checks = [pingMysqlConnection()];
+
+    if (isPostgresPrismaEnabled) {
+      checks.unshift(prisma.$queryRaw`SELECT 1`);
+    }
+
+    await Promise.all(checks);
     console.log("[db] keep-alive ping");
   } catch (error) {
     console.error("[db] keep-alive failed:", error?.message || error);
@@ -234,7 +258,9 @@ const shutdown = async (signal) => {
   });
 
   try {
-    await prisma.$disconnect();
+    if (isPostgresPrismaEnabled) {
+      await prisma.$disconnect();
+    }
   } catch (error) {
     console.error("Prisma disconnect failed:", error);
   }

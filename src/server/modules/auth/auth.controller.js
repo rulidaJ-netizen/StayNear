@@ -35,6 +35,9 @@ const normalizeAccountType = (value) =>
 const normalizeEmail = (value) => String(value ?? "").trim().toLowerCase();
 const HASH_ROUNDS = 12;
 const dbPromise = db.promise();
+const isPostgresPrismaEnabled = /^postgres(ql)?:\/\//i.test(
+  String(process.env.DATABASE_URL || "").trim()
+);
 
 const serializeAuthUser = (account) => ({
   account_id: account.accountId ?? null,
@@ -202,10 +205,28 @@ export const login = async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
     const requestedRole = normalizeAccountType(role);
 
-    const account = await prisma.account.findUnique({
-      where: { email: normalizedEmail },
-      select: AUTH_LOGIN_SELECT,
-    });
+    const account = isPostgresPrismaEnabled
+      ? await prisma.account.findUnique({
+          where: { email: normalizedEmail },
+          select: AUTH_LOGIN_SELECT,
+        })
+      : (
+          await queryAsync(
+            `
+              SELECT
+                account_id AS accountId,
+                account_type AS accountType,
+                email,
+                password,
+                student_id AS studentId,
+                landowner_id AS landownerId
+              FROM account
+              WHERE email = ?
+              LIMIT 1
+            `,
+            [normalizedEmail]
+          )
+        )[0] ?? null;
 
     if (!account) {
       return res.status(404).json({ message: "Account not found" });
@@ -225,7 +246,6 @@ export const login = async (req, res) => {
       return res.status(403).json({ message: "Role mismatch" });
     }
 
-    // Generate JWT token
     let tokenPayload = {};
     if (account.accountType === "STUDENT") {
       tokenPayload = {
